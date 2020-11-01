@@ -4,7 +4,7 @@ Third-world IoT gateway written in Rust which consists of
   - Smart garden (WIP)
   - Energy monitor (Not progress yet)
 
-Steps to compile:
+### Steps to compile
 1. [Install Rust](https://www.rust-lang.org/learn/get-started)
 2. Add `.env` file containing
 ```
@@ -15,7 +15,7 @@ DATABASE_URL=db.sqlite3
 cargo build
 ```
 
-Cross compile for Orange Pi Zero:
+### Cross compile for Orange Pi Zero
 1. Install cross
 ```
 cargo install cross

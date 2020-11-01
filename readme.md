@@ -1,4 +1,8 @@
 # TWIoT Gateway
+Third-world IoT gateway written in Rust which consists of
+  - MQTT router
+  - Smart garden (WIP)
+  - Energy monitor (Not progress yet)
 
 Steps to compile:
 1. [Install Rust](https://www.rust-lang.org/learn/get-started)

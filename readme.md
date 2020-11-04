@@ -6,11 +6,16 @@ Third-world IoT gateway written in Rust which consists of
 
 ### Steps to compile
 1. [Install Rust](https://www.rust-lang.org/learn/get-started)
-2. Add `.env` file containing
+2. Install dependencies
+```
+# Ubuntu/debian
+sudo apt install libsqlite3-dev
+```
+3. Add `.env` file containing
 ```
 DATABASE_URL=db.sqlite3
 ```
-3. Compile
+4. Compile
 ```
 cargo build
 ```

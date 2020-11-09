@@ -6,6 +6,7 @@ mod serve;
 mod db;
 mod schema;
 mod models;
+mod helpermodels;
 
 use std::sync::Arc;
 use tokio::sync::Mutex;
@@ -24,8 +25,8 @@ async fn main() {
     let (client, mut eventloop) = mqtt::init().await;
     let conn = db::init();
         
-    embedded_migrations::run(&conn);
-    db::populate(&conn); 
+    embedded_migrations::run(&conn).expect("Error running migrations.");
+    db::populate(&conn);
 
     let client_arc = Arc::new(Mutex::new(client));
     let conn_arc = Arc::new(Mutex::new(conn));

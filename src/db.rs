@@ -28,7 +28,7 @@ pub fn populate(connection: &SqliteConnection) {
             println!("No watering time detected! Creating...");
 
             let new_watering_time = WateringTime {
-                id: 0,
+                id: None,
                 time: 30
             };
 
@@ -49,7 +49,7 @@ pub fn populate(connection: &SqliteConnection) {
             println!("No schedules found. Creating...");
 
             let new_schedule = Schedule {
-                id: 0,
+                id: None,
                 hour: 12,
                 minute: 0
             };

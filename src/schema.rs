@@ -1,13 +1,13 @@
 table! {
     device_types (id) {
-        id -> Integer,
+        id -> Nullable<Integer>,
         name -> Text,
     }
 }
 
 table! {
     devices (id) {
-        id -> Integer,
+        id -> Nullable<Integer>,
         name -> Text,
         serial_number -> Text,
         device_type_id -> Integer,
@@ -16,7 +16,7 @@ table! {
 
 table! {
     schedules (id) {
-        id -> Integer,
+        id -> Nullable<Integer>,
         hour -> Integer,
         minute -> Integer,
     }
@@ -24,14 +24,14 @@ table! {
 
 table! {
     sensor_types (id) {
-        id -> Integer,
+        id -> Nullable<Integer>,
         name -> Text,
     }
 }
 
 table! {
     sensors (id) {
-        id -> Integer,
+        id -> Nullable<Integer>,
         name -> Text,
         device_id -> Integer,
         sensor_type_id -> Integer,
@@ -41,7 +41,7 @@ table! {
 
 table! {
     watering_times (id) {
-        id -> Integer,
+        id -> Nullable<Integer>,
         time -> Integer,
     }
 }

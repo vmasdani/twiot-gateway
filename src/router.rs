@@ -10,10 +10,9 @@ pub async fn route(conn_arc: Arc<Mutex<SqliteConnection>>, client_arc: Arc<Mutex
 
     match route.as_str() {
         "schedules/req" => schedule_req(conn_arc, client_arc).await,
-        "schedules/req/add" => schedule_req_add(conn_arc, client_arc, payload).await,
-        "schedules/req/delete" => schedule_delete(conn_arc, client_arc, payload).await,
+        "schedules/req/save" => schedule_req_save(conn_arc, payload).await,
+        "schedules/req/delete" => schedule_delete(conn_arc, payload).await,
         "schedules/res" => schedule_res(payload).await,
-
         "watering_times/req" => {
         
         }

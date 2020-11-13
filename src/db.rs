@@ -14,9 +14,9 @@ pub fn init() -> SqliteConnection {
 }
 
 pub fn populate(connection: &SqliteConnection) {
-    use crate::schema::watering_times::dsl::*;
-    use crate::schema::schedules::dsl::*;
+    // Check watering time
     
+    use crate::schema::watering_times::dsl::{watering_times};
     if let Ok(watering_times_result) = watering_times.load::<WateringTime>(connection) {
         println!("Showing {} watering times.", watering_times_result.len());
 
@@ -38,6 +38,8 @@ pub fn populate(connection: &SqliteConnection) {
         }
     }
 
+    // Check schedule
+    use crate::schema::schedules::dsl::{schedules};
     if let Ok(schedules_result) = schedules.load::<Schedule>(connection) {
         println!("Showing {} schedules.", schedules_result.len());
 
@@ -57,4 +59,27 @@ pub fn populate(connection: &SqliteConnection) {
             diesel::insert_into(schedules).values(&new_schedule).execute(connection);
         }
     }
+
+    // Check device types
+    
+    vec!["Node", "Gateway"].into_iter().for_each(|device_name| {
+        use crate::schema::device_types::dsl::{device_types, name};
+        use diesel::result::Error;
+
+        match device_types.filter(name.eq(String::from(device_name))).first(connection) as Result<DeviceType, _> {
+            Ok(_) => {
+                println!("Device type {} found!", device_name);
+            }
+            Err(_) => {
+                println!("Device type {} not found! Creating...", device_name);
+
+                let new_device_type = DeviceType {
+                    id: None,
+                    name: String::from(device_name)
+                };
+
+                diesel::replace_into(device_types).values(&new_device_type).execute(connection);
+            }
+        }
+    });
 }

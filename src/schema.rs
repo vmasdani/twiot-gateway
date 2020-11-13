@@ -30,6 +30,16 @@ table! {
 }
 
 table! {
+    sensor_values (id) {
+        id -> Nullable<Integer>,
+        sense_value -> Integer,
+        max -> Integer,
+        min -> Integer,
+        sensor_id -> Integer,
+    }
+}
+
+table! {
     sensors (id) {
         id -> Nullable<Integer>,
         name -> Text,
@@ -51,6 +61,7 @@ allow_tables_to_appear_in_same_query!(
     devices,
     schedules,
     sensor_types,
+    sensor_values,
     sensors,
     watering_times,
 );

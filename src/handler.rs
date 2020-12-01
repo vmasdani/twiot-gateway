@@ -30,7 +30,7 @@ pub async fn schedule_req(
                     .await;
             }
         }
-        Err(_) => { println!("Error gettings schedules!") }
+        Err(_) => println!("Error gettings schedules!"),
     }
 }
 
@@ -72,4 +72,54 @@ pub async fn schedule_delete(conn_arc: Arc<Mutex<SqliteConnection>>, payload: St
 
 pub async fn schedule_res(payload: String) {
     println!("Schedule res received. {}", payload);
+}
+
+pub async fn watering_time_req(
+    conn_arc: Arc<Mutex<SqliteConnection>>,
+    client_arc: Arc<Mutex<AsyncClient>>,
+) {
+    use crate::schema::watering_times::dsl::{id, watering_times};
+
+    let conn = conn_arc.lock().await;
+
+    let watering_times_res = watering_times.load::<WateringTime>(&*conn);
+
+    if let Ok(watering_times_list) = watering_times_res {
+        if let Ok(watering_times_str) = serde_json::to_string(&watering_times_list) {
+            println!("{}", watering_times_str);
+
+            let client = client_arc.lock().await;
+
+            client
+                .publish(
+                    "watering_time/res",
+                    rumqttc::QoS::AtLeastOnce,
+                    false,
+                    watering_times_str,
+                )
+                .await;
+        }
+    }
+}
+
+pub async fn watering_time_res(payload: String) {
+    println!("Watering time res recv: {}", payload);
+}
+
+pub async fn watering_req(payload: String) {
+    println!("Watering req recv: {}", payload);
+
+    match serde_json::from_str::<WateringBody>(payload.as_str()) {
+        Ok(decoded_watering_body) => {
+            println!(
+                "Decode watering req body success: {}, {:?}, {}",
+                decoded_watering_body.watering_type,
+                decoded_watering_body.watering_time,
+                decoded_watering_body.switch_on
+            );
+        }
+        Err(e) => {
+            println!("Watering req payload invalid. {:?}", e);
+        }
+    }
 }

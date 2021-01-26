@@ -31,6 +31,6 @@ systemctl start docker
 ```
 3. Compile to opi zero target
 ```
-cross build --release --target armv7-unknown-linux-gnueabihf
+cross build --target armv7-unknown-linux-musleabihf --release
 ```
 4. Files will be located in `target/`

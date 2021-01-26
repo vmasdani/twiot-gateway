@@ -6,16 +6,11 @@ Third-world IoT gateway written in Rust which consists of
 
 ### Steps to compile
 1. [Install Rust](https://www.rust-lang.org/learn/get-started)
-2. Install dependencies
+2. Add `.env` file containing
 ```
-# Ubuntu/debian
-sudo apt install libsqlite3-dev
+DATABASE_URL=twiot-gateway.sqlite3
 ```
-3. Add `.env` file containing
-```
-DATABASE_URL=db.sqlite3
-```
-4. Compile
+3. Compile
 ```
 cargo build
 ```

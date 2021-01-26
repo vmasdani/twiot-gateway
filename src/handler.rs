@@ -1,10 +1,32 @@
-use crate::helpermodels::*;
+use crate::{helpermodels::*, schema};
 use crate::models::*;
-use diesel::prelude::*;
+use actix_web::{get, post, delete, HttpResponse, Responder, web};
+use diesel::{prelude::*, r2d2::{self, ConnectionManager}};
 use diesel::SqliteConnection;
 use rumqttc::AsyncClient;
 use std::sync::Arc;
 use tokio::sync::Mutex;
+
+type DbPool = r2d2::Pool<ConnectionManager<SqliteConnection>>;
+
+#[get("/schedules")]
+async fn all_schedules(pool: web::Data<DbPool>) -> impl Responder {
+    match pool.get() {
+        Ok(pool_res) => {
+            let schedules = web::block(move || {
+                use schema::schedules::dsl::*;  
+                schedules.load::<Schedule>(&pool_res)
+            }).await;
+
+            match schedules {
+                Ok(schedules_res) =>  HttpResponse::Ok().json(schedules_res),
+                _ => HttpResponse::InternalServerError().body("Error getting schedules")
+            }
+        }, Err(_) => {
+            HttpResponse::InternalServerError().body("Error getting pool")
+        }
+    }
+}
 
 pub async fn schedule_req(
     conn_arc: Arc<Mutex<SqliteConnection>>,

@@ -1,26 +1,33 @@
+use crate::schema::*;
+use chrono::NaiveDateTime;
 use serde::{Deserialize, Serialize};
-use crate::schema::*; 
 
-#[derive(Insertable, Queryable, Serialize, Deserialize, Debug)]
+#[derive(Identifiable, Insertable, Queryable, Serialize, Deserialize, Debug)]
 pub struct Schedule {
     pub id: Option<i32>,
-    pub hour: i32,
-    pub minute: i32
+    pub hour: Option<i32>,
+    pub minute: Option<i32>,
+    pub created_at: Option<NaiveDateTime>,
+    pub updated_at: Option<NaiveDateTime>,
 }
 
-#[derive(Insertable, Queryable, Serialize, Deserialize, Debug)]
+#[derive(Identifiable, Insertable, Queryable, Serialize, Deserialize, Debug)]
 pub struct WateringTime {
     pub id: Option<i32>,
-    pub time: i32
+    pub time: Option<i32>,
+    pub created_at: Option<NaiveDateTime>,
+    pub updated_at: Option<NaiveDateTime>,
 }
 
 #[derive(Identifiable, Associations, Insertable, Queryable, Serialize, Deserialize, Debug)]
 #[belongs_to(DeviceType)]
 pub struct Device {
     pub id: Option<i32>,
-    pub name: String,
-    pub serial_number: String,
-    pub device_type_id: i32
+    pub name: Option<String>,
+    pub serial_number: Option<String>,
+    pub device_type_id: Option<i32>,
+    pub created_at: Option<NaiveDateTime>,
+    pub updated_at: Option<NaiveDateTime>,
 }
 
 #[derive(Identifiable, Insertable, Associations, Queryable, Serialize, Deserialize, Debug)]
@@ -28,30 +35,38 @@ pub struct Device {
 #[belongs_to(SensorType)]
 pub struct Sensor {
     pub id: Option<i32>,
-    pub name: String,
-    pub serial_number: String,
-    pub sensor_type_id: i32,
-    pub device_id: i32,
+    pub name: Option<String>,
+    pub serial_number: Option<String>,
+    pub sensor_type_id: Option<i32>,
+    pub device_id: Option<i32>,
+    pub created_at: Option<NaiveDateTime>,
+    pub updated_at: Option<NaiveDateTime>,
 }
 
 #[derive(Identifiable, Insertable, Associations, Queryable, Serialize, Deserialize, Debug)]
 pub struct SensorType {
     pub id: Option<i32>,
-    pub name: String
+    pub name: Option<String>,
+    pub created_at: Option<NaiveDateTime>,
+    pub updated_at: Option<NaiveDateTime>,
 }
 
 #[derive(Identifiable, Insertable, Associations, Queryable, Serialize, Deserialize, Debug)]
 pub struct DeviceType {
     pub id: Option<i32>,
-    pub name: String
+    pub name: Option<String>,
+    pub created_at: Option<NaiveDateTime>,
+    pub updated_at: Option<NaiveDateTime>,
 }
 
 #[derive(Identifiable, Associations, Queryable, Serialize, Deserialize, Debug)]
 #[belongs_to(Sensor)]
 pub struct SensorValue {
     pub id: Option<i32>,
-    pub sense_value: String,
-    pub max: i32,
-    pub min: i32,
-    pub sensor_id: i32
+    pub sense_value: Option<String>,
+    pub max: Option<i32>,
+    pub min: Option<i32>,
+    pub sensor_id: Option<i32>,
+    pub created_at: Option<NaiveDateTime>,
+    pub updated_at: Option<NaiveDateTime>,
 }

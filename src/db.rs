@@ -1,22 +1,23 @@
+use crate::models::*;
 use diesel::prelude::*;
 use diesel::sqlite::SqliteConnection;
 use dotenv::dotenv;
-use crate::models::*;
 use std::env;
 
 pub fn init() -> SqliteConnection {
     dotenv().ok();
-    
+
     let database_url = env::var("DATABASE_URL").expect("DATABASE_URL must be set!");
-    let sqlite_connection = SqliteConnection::establish(&database_url).expect(&format!("Error connecting to {}", database_url));
+    let sqlite_connection = SqliteConnection::establish(&database_url)
+        .expect(&format!("Error connecting to {}", database_url));
 
     sqlite_connection
 }
 
 pub fn populate(connection: &SqliteConnection) {
     // Check watering time
-    
-    use crate::schema::watering_times::dsl::{watering_times};
+
+    use crate::schema::watering_times::dsl::watering_times;
     if let Ok(watering_times_result) = watering_times.load::<WateringTime>(connection) {
         println!("Showing {} watering times.", watering_times_result.len());
 
@@ -29,7 +30,9 @@ pub fn populate(connection: &SqliteConnection) {
 
             let new_watering_time = WateringTime {
                 id: None,
-                time: 30
+                time: Some(30),
+                created_at: None,
+                updated_at: None,
             };
 
             diesel::insert_into(watering_times)
@@ -39,7 +42,7 @@ pub fn populate(connection: &SqliteConnection) {
     }
 
     // Check schedule
-    use crate::schema::schedules::dsl::{schedules};
+    use crate::schema::schedules::dsl::schedules;
     if let Ok(schedules_result) = schedules.load::<Schedule>(connection) {
         println!("Showing {} schedules.", schedules_result.len());
 
@@ -52,21 +55,28 @@ pub fn populate(connection: &SqliteConnection) {
 
             let new_schedule = Schedule {
                 id: None,
-                hour: 12,
-                minute: 0
+                hour: Some(12),
+                minute: Some(0),
+                created_at: None,
+                updated_at: None,
             };
 
-            diesel::insert_into(schedules).values(&new_schedule).execute(connection);
+            diesel::insert_into(schedules)
+                .values(&new_schedule)
+                .execute(connection);
         }
     }
 
     // Check device types
-    
-    vec!["Node", "Gateway"].into_iter().for_each(|device_name| {
-        use crate::schema::device_types::dsl::{device_types, name};
-        use diesel::result::Error;
 
-        match device_types.filter(name.eq(String::from(device_name))).first(connection) as Result<DeviceType, _> {
+    vec!["Node", "Gateway"].into_iter().for_each(|device_name| {
+        use crate::schema::device_types::dsl::*;
+
+        let found_device_type = device_types
+            .filter(name.eq(device_name))
+            .first::<DeviceType>(connection);
+
+        match found_device_type {
             Ok(_) => {
                 println!("Device type {} found!", device_name);
             }
@@ -75,10 +85,14 @@ pub fn populate(connection: &SqliteConnection) {
 
                 let new_device_type = DeviceType {
                     id: None,
-                    name: String::from(device_name)
+                    name: Some(device_name.to_string()),
+                    created_at: None,
+                    updated_at: None,
                 };
 
-                diesel::replace_into(device_types).values(&new_device_type).execute(connection);
+                diesel::replace_into(device_types)
+                    .values(&new_device_type)
+                    .execute(connection);
             }
         }
     });

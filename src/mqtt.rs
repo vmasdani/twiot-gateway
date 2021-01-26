@@ -1,5 +1,5 @@
 use crate::router;
-use diesel::SqliteConnection;
+use diesel::{SqliteConnection, r2d2::{ConnectionManager, Pool}};
 use rumqttc::{AsyncClient, Event, EventLoop, Incoming, MqttOptions, QoS};
 use std::sync::Arc;
 use tokio::sync::Mutex;
@@ -16,6 +16,7 @@ pub async fn init() -> (AsyncClient, EventLoop) {
 }
 
 pub async fn listen(
+    pool: Pool<ConnectionManager<SqliteConnection>>,
     conn_arc: Arc<Mutex<SqliteConnection>>,
     client_arc: Arc<Mutex<AsyncClient>>,
     eventloop: &mut EventLoop,

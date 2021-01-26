@@ -1,58 +1,72 @@
 table! {
     device_types (id) {
         id -> Nullable<Integer>,
-        name -> Text,
+        name -> Nullable<Text>,
+        created_at -> Nullable<Timestamp>,
+        updated_at -> Nullable<Timestamp>,
     }
 }
 
 table! {
     devices (id) {
         id -> Nullable<Integer>,
-        name -> Text,
-        serial_number -> Text,
-        device_type_id -> Integer,
+        name -> Nullable<Text>,
+        serial_number -> Nullable<Text>,
+        device_type_id -> Nullable<Integer>,
+        created_at -> Nullable<Timestamp>,
+        updated_at -> Nullable<Timestamp>,
     }
 }
 
 table! {
     schedules (id) {
         id -> Nullable<Integer>,
-        hour -> Integer,
-        minute -> Integer,
+        hour -> Nullable<Integer>,
+        minute -> Nullable<Integer>,
+        created_at -> Nullable<Timestamp>,
+        updated_at -> Nullable<Timestamp>,
     }
 }
 
 table! {
     sensor_types (id) {
         id -> Nullable<Integer>,
-        name -> Text,
+        name -> Nullable<Text>,
+        created_at -> Nullable<Timestamp>,
+        updated_at -> Nullable<Timestamp>,
     }
 }
 
 table! {
     sensor_values (id) {
         id -> Nullable<Integer>,
-        sense_value -> Integer,
-        max -> Integer,
-        min -> Integer,
-        sensor_id -> Integer,
+        sense_value -> Nullable<Integer>,
+        max -> Nullable<Integer>,
+        min -> Nullable<Integer>,
+        sensor_id -> Nullable<Integer>,
+        created_at -> Nullable<Timestamp>,
+        updated_at -> Nullable<Timestamp>,
     }
 }
 
 table! {
     sensors (id) {
         id -> Nullable<Integer>,
-        name -> Text,
-        device_id -> Integer,
-        sensor_type_id -> Integer,
-        serial_number -> Text,
+        name -> Nullable<Text>,
+        device_id -> Nullable<Integer>,
+        sensor_type_id -> Nullable<Integer>,
+        serial_number -> Nullable<Text>,
+        created_at -> Nullable<Timestamp>,
+        updated_at -> Nullable<Timestamp>,
     }
 }
 
 table! {
     watering_times (id) {
         id -> Nullable<Integer>,
-        time -> Integer,
+        time -> Nullable<Integer>,
+        created_at -> Nullable<Timestamp>,
+        updated_at -> Nullable<Timestamp>,
     }
 }
 

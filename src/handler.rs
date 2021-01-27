@@ -1,147 +1,258 @@
-use crate::{helpermodels::*, schema};
 use crate::models::*;
-use actix_web::{get, post, delete, HttpResponse, Responder, web};
-use diesel::{prelude::*, r2d2::{self, ConnectionManager}};
+use crate::{helpermodels::*, schema};
+use actix_rt::blocking;
+use actix_web::{client::JsonPayloadError, delete, dev, get, post, web, HttpResponse, Responder};
 use diesel::SqliteConnection;
+use diesel::{
+    prelude::*,
+    r2d2::{self, ConnectionManager},
+    replace_into,
+};
 use rumqttc::AsyncClient;
+use serde::{Deserialize, Serialize};
 use std::sync::Arc;
-use tokio::sync::Mutex;
+use tokio::sync::{watch, Mutex};
 
 type DbPool = r2d2::Pool<ConnectionManager<SqliteConnection>>;
 
+// Register device
+
+#[derive(Serialize, Deserialize)]
+struct MacData {
+    address: String,
+}
+
+#[post("/register-device")]
+pub async fn register_device(
+    pool: web::Data<DbPool>,
+    mac_data: web::Json<MacData>,
+) -> impl Responder {
+    // Search for existing mac address
+    match pool.get() {
+        Ok(pool_res) => {
+            let found_device_res = web::block(move || {
+                use schema::devices::dsl::*;
+
+                match devices
+                    .filter(mac.eq(mac_data.address.clone()))
+                    .first::<Device>(&pool_res)
+                {
+                    Ok(device_res) => {
+                        println!("Device found {:?}", device_res);
+                        Ok(device_res as Device)
+                    }
+                    Err(e) => {
+                        println!("Device not found with mac {:?}, creating.", mac_data.address);
+
+                        diesel::replace_into(devices).values(Device {
+                            id: None,
+                            name: Some(String::from("")),
+                            serial_number: Some(String::from("")),
+                            device_type_id: None,
+                            created_at: None,
+                            updated_at: None,
+                            mac: Some(mac_data.address.clone()),
+                        }).execute(&pool_res);
+
+                        let saved_device = devices.order_by(id.desc()).first::<Device>(&pool_res);
+                        println!("Saved device: {:?}", saved_device);
+
+                        saved_device
+                    }
+                }
+            })
+            .await;
+
+            match found_device_res {
+                Ok(device_res) => HttpResponse::Ok().json(device_res),
+                Err(e) => HttpResponse::InternalServerError()
+                    .body("Error saving device or blocking error"),
+            }
+        }
+        _ => HttpResponse::InternalServerError().body("Failed getting pool"),
+    }
+}
+
+// Path schedules
+
 #[get("/schedules")]
-async fn all_schedules(pool: web::Data<DbPool>) -> impl Responder {
+pub async fn all_schedules(pool: web::Data<DbPool>) -> impl Responder {
     match pool.get() {
         Ok(pool_res) => {
             let schedules = web::block(move || {
-                use schema::schedules::dsl::*;  
+                use schema::schedules::dsl::*;
                 schedules.load::<Schedule>(&pool_res)
-            }).await;
+            })
+            .await;
 
             match schedules {
-                Ok(schedules_res) =>  HttpResponse::Ok().json(schedules_res),
-                _ => HttpResponse::InternalServerError().body("Error getting schedules")
-            }
-        }, Err(_) => {
-            HttpResponse::InternalServerError().body("Error getting pool")
-        }
-    }
-}
-
-pub async fn schedule_req(
-    conn_arc: Arc<Mutex<SqliteConnection>>,
-    client_arc: Arc<Mutex<AsyncClient>>,
-) {
-    use crate::schema::schedules::dsl::*;
-
-    let conn = conn_arc.lock().await;
-    let schedules_res = schedules.load::<Schedule>(&*conn);
-
-    match schedules_res {
-        Ok(schedules_list) => {
-            let client = client_arc.lock().await;
-
-            if let Ok(schedules_string) = serde_json::to_string(&schedules_list) {
-                client
-                    .publish(
-                        "schedules/res",
-                        rumqttc::QoS::AtLeastOnce,
-                        false,
-                        schedules_string,
-                    )
-                    .await;
+                Ok(schedules_res) => HttpResponse::Ok().json(schedules_res),
+                _ => HttpResponse::InternalServerError().body("Error getting schedules"),
             }
         }
-        Err(_) => println!("Error gettings schedules!"),
+        Err(_) => HttpResponse::InternalServerError().body("Error getting pool"),
     }
 }
 
-pub async fn schedule_req_save(
-    conn_arc: Arc<Mutex<SqliteConnection>>,
-    // client: Arc<Mutex<AsyncClient>>,
-    payload: String,
-) {
-    use crate::schema::schedules::dsl::*;
+#[get("/schedules/{schedule_id}")]
+pub async fn get_schedule(pool: web::Data<DbPool>, schedule_id: web::Path<i32>) -> impl Responder {
+    match pool.get() {
+        Ok(pool_res) => {
+            let schedule = web::block(move || {
+                use schema::schedules::dsl::*;
+                schedules
+                    .filter(id.eq(schedule_id.into_inner()))
+                    .first::<Schedule>(&pool_res)
+            })
+            .await;
 
-    let schedule_res = serde_json::from_str::<Schedule>(payload.as_str());
-
-    if let Ok(schedule) = schedule_res {
-        println!("Schedule: {:?}", schedule);
-        let conn = conn_arc.lock().await;
-        diesel::replace_into(schedules)
-            .values(&schedule)
-            .execute(&*conn);
+            match schedule {
+                Ok(schedules_res) => HttpResponse::Ok().json(schedules_res),
+                _ => HttpResponse::NotFound().body("Schedule not found"),
+            }
+        }
+        Err(_) => HttpResponse::InternalServerError().body("Error getting pool"),
     }
 }
 
-pub async fn schedule_delete(conn_arc: Arc<Mutex<SqliteConnection>>, payload: String) {
-    use crate::schema::schedules::dsl::*;
-    let idBody = serde_json::from_str::<IdBody>(payload.as_str());
+#[post("/schedules")]
+pub async fn post_schedule(
+    pool: web::Data<DbPool>,
+    schedule: web::Json<Schedule>,
+) -> impl Responder {
+    match pool.get() {
+        Ok(pool_res) => {
+            let schedule_res = web::block(move || {
+                use schema::schedules::dsl::*;
+                match diesel::replace_into(schedules)
+                    .values(&schedule.into_inner())
+                    .execute(&pool_res)
+                {
+                    Ok(_) => schedules.order_by(id.desc()).first::<Schedule>(&pool_res),
+                    Err(e) => Err(e),
+                }
+            })
+            .await;
 
-    match idBody {
-        Ok(idBody) => {
-            println!("ID body: {} - {:?}", idBody.id, idBody);
-
-            let conn = conn_arc.lock().await;
-
-            diesel::delete(schedules.filter(id.eq(idBody.id))).execute(&*conn);
+            match schedule_res {
+                Ok(schedule_res_body) => HttpResponse::Ok().json(schedule_res_body),
+                _ => HttpResponse::InternalServerError().body("Error getting schedules"),
+            }
         }
-        Err(_) => {
-            println!("Error decoding ID body!");
-        }
+        Err(_) => HttpResponse::InternalServerError().body("Error getting pool"),
     }
 }
 
-pub async fn schedule_res(payload: String) {
-    println!("Schedule res received. {}", payload);
-}
+#[delete("/schedules/{schedule_id}")]
+pub async fn delete_schedule(
+    pool: web::Data<DbPool>,
+    schedule_id: web::Path<i32>,
+) -> impl Responder {
+    match pool.get() {
+        Ok(pool_res) => {
+            let schedule = web::block(move || {
+                use schema::schedules::dsl::*;
+                diesel::delete(schedules.filter(id.eq(schedule_id.into_inner()))).execute(&pool_res)
+            })
+            .await;
 
-pub async fn watering_time_req(
-    conn_arc: Arc<Mutex<SqliteConnection>>,
-    client_arc: Arc<Mutex<AsyncClient>>,
-) {
-    use crate::schema::watering_times::dsl::{id, watering_times};
-
-    let conn = conn_arc.lock().await;
-
-    let watering_times_res = watering_times.load::<WateringTime>(&*conn);
-
-    if let Ok(watering_times_list) = watering_times_res {
-        if let Ok(watering_times_str) = serde_json::to_string(&watering_times_list) {
-            println!("{}", watering_times_str);
-
-            let client = client_arc.lock().await;
-
-            client
-                .publish(
-                    "watering_time/res",
-                    rumqttc::QoS::AtLeastOnce,
-                    false,
-                    watering_times_str,
-                )
-                .await;
+            HttpResponse::Ok().body("OK")
         }
+        Err(_) => HttpResponse::InternalServerError().body("Error getting pool"),
     }
 }
 
-pub async fn watering_time_res(payload: String) {
-    println!("Watering time res recv: {}", payload);
+// Path watering times
+
+#[get("/wateringtimes")]
+pub async fn all_wateringtimes(pool: web::Data<DbPool>) -> impl Responder {
+    match pool.get() {
+        Ok(pool_res) => {
+            let watering_times = web::block(move || {
+                use schema::watering_times::dsl::*;
+                watering_times.load::<WateringTime>(&pool_res)
+            })
+            .await;
+
+            match watering_times {
+                Ok(watering_times_res) => HttpResponse::Ok().json(watering_times_res),
+                _ => HttpResponse::InternalServerError().body("Error getting watering times"),
+            }
+        }
+        Err(_) => HttpResponse::InternalServerError().body("Error getting pool"),
+    }
 }
 
-pub async fn watering_req(payload: String) {
-    println!("Watering req recv: {}", payload);
+#[get("/wateringtimes/{wateringtime_id}")]
+pub async fn get_wateringtime(
+    pool: web::Data<DbPool>,
+    wateringtime_id: web::Path<i32>,
+) -> impl Responder {
+    match pool.get() {
+        Ok(pool_res) => {
+            let watering_time = web::block(move || {
+                use schema::watering_times::dsl::*;
+                watering_times
+                    .filter(id.eq(wateringtime_id.into_inner()))
+                    .first::<WateringTime>(&pool_res)
+            })
+            .await;
 
-    match serde_json::from_str::<WateringBody>(payload.as_str()) {
-        Ok(decoded_watering_body) => {
-            println!(
-                "Decode watering req body success: {}, {:?}, {}",
-                decoded_watering_body.watering_type,
-                decoded_watering_body.watering_time,
-                decoded_watering_body.switch_on
-            );
+            match watering_time {
+                Ok(watering_time_res) => HttpResponse::Ok().json(watering_time_res),
+                _ => HttpResponse::NotFound().body("Schedule not found"),
+            }
         }
-        Err(e) => {
-            println!("Watering req payload invalid. {:?}", e);
+        Err(_) => HttpResponse::InternalServerError().body("Error getting pool"),
+    }
+}
+
+#[post("/wateringtimes")]
+pub async fn post_wateringtime(
+    pool: web::Data<DbPool>,
+    watering_time: web::Json<WateringTime>,
+) -> impl Responder {
+    match pool.get() {
+        Ok(pool_res) => {
+            let watering_time_res = web::block(move || {
+                use schema::watering_times::dsl::*;
+                match diesel::replace_into(watering_times)
+                    .values(&watering_time.into_inner())
+                    .execute(&pool_res)
+                {
+                    Ok(_) => watering_times
+                        .order_by(id.desc())
+                        .first::<WateringTime>(&pool_res),
+                    Err(e) => Err(e),
+                }
+            })
+            .await;
+
+            match watering_time_res {
+                Ok(watering_time_body) => HttpResponse::Ok().json(watering_time_body),
+                _ => HttpResponse::InternalServerError().body("Error getting schedules"),
+            }
         }
+        Err(_) => HttpResponse::InternalServerError().body("Error getting pool"),
+    }
+}
+
+#[delete("/wateringtimes/{wateringtime_id}")]
+pub async fn delete_wateringtime(
+    pool: web::Data<DbPool>,
+    wateringtime_id: web::Path<i32>,
+) -> impl Responder {
+    match pool.get() {
+        Ok(pool_res) => {
+            let schedule = web::block(move || {
+                use schema::watering_times::dsl::*;
+                diesel::delete(watering_times.filter(id.eq(wateringtime_id.into_inner())))
+                    .execute(&pool_res)
+            })
+            .await;
+
+            HttpResponse::Ok().body("OK")
+        }
+        Err(_) => HttpResponse::InternalServerError().body("Error getting pool"),
     }
 }

@@ -15,6 +15,7 @@ table! {
         device_type_id -> Nullable<Integer>,
         created_at -> Nullable<Timestamp>,
         updated_at -> Nullable<Timestamp>,
+        mac -> Nullable<Text>,
     }
 }
 

@@ -16,6 +16,9 @@ use std::sync::Arc;
 use tokio::sync::Mutex;
 
 #[macro_use]
+extern crate serde_json;
+
+#[macro_use]
 extern crate diesel;
 
 #[macro_use]

@@ -18,14 +18,21 @@ type DbPool = r2d2::Pool<ConnectionManager<SqliteConnection>>;
 // Register device
 
 #[derive(Serialize, Deserialize)]
-struct MacData {
-    address: String,
+struct DeviceIdentifier {
+    mac: String,
+    ip: String,
+}
+
+#[get("/check-resp")]
+pub async fn check_resp() -> impl Responder {
+    println!("Req sent");
+    HttpResponse::Ok().body("OK")
 }
 
 #[post("/register-device")]
 pub async fn register_device(
     pool: web::Data<DbPool>,
-    mac_data: web::Json<MacData>,
+    device_identifier: web::Json<DeviceIdentifier>,
 ) -> impl Responder {
     // Search for existing mac address
     match pool.get() {
@@ -34,7 +41,7 @@ pub async fn register_device(
                 use schema::devices::dsl::*;
 
                 match devices
-                    .filter(mac.eq(mac_data.address.clone()))
+                    .filter(mac.eq(device_identifier.mac.clone()))
                     .first::<Device>(&pool_res)
                 {
                     Ok(device_res) => {
@@ -42,17 +49,23 @@ pub async fn register_device(
                         Ok(device_res as Device)
                     }
                     Err(e) => {
-                        println!("Device not found with mac {:?}, creating.", mac_data.address);
+                        println!(
+                            "Device not found with mac {:?}, creating.",
+                            device_identifier.mac
+                        );
 
-                        diesel::replace_into(devices).values(Device {
-                            id: None,
-                            name: Some(String::from("")),
-                            serial_number: Some(String::from("")),
-                            device_type_id: None,
-                            created_at: None,
-                            updated_at: None,
-                            mac: Some(mac_data.address.clone()),
-                        }).execute(&pool_res);
+                        diesel::replace_into(devices)
+                            .values(Device {
+                                id: None,
+                                name: Some(String::from("")),
+                                serial_number: Some(String::from("")),
+                                device_type_id: None,
+                                created_at: None,
+                                updated_at: None,
+                                mac: Some(device_identifier.mac.clone()),
+                                ip: Some(device_identifier.ip.clone()),
+                            })
+                            .execute(&pool_res);
 
                         let saved_device = devices.order_by(id.desc()).first::<Device>(&pool_res);
                         println!("Saved device: {:?}", saved_device);
@@ -64,7 +77,7 @@ pub async fn register_device(
             .await;
 
             match found_device_res {
-                Ok(device_res) => HttpResponse::Ok().json(device_res),
+                Ok(device_res) => HttpResponse::Created().json(device_res),
                 Err(e) => HttpResponse::InternalServerError()
                     .body("Error saving device or blocking error"),
             }

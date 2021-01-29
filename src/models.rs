@@ -29,6 +29,7 @@ pub struct Device {
     pub created_at: Option<NaiveDateTime>,
     pub updated_at: Option<NaiveDateTime>,
     pub mac: Option<String>,
+    pub ip: Option<String>,
 }
 
 #[derive(Identifiable, Insertable, Associations, Queryable, Serialize, Deserialize, Debug)]

@@ -32,6 +32,8 @@ pub async fn run_actix(pool: Pool<ConnectionManager<SqliteConnection>>) -> std::
             .service(delete_wateringtime)
             // MAC Registration
             .service(register_device)
+            // Misc
+            .service(check_resp)
     })
     .bind("0.0.0.0:8080")?
     .run()

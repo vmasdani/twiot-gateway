@@ -1,7 +1,27 @@
 table! {
+    device_schedules (id) {
+        id -> Nullable<Integer>,
+        device_id -> Nullable<Integer>,
+        schedule_id -> Nullable<Integer>,
+        created_at -> Nullable<Timestamp>,
+        updated_at -> Nullable<Timestamp>,
+    }
+}
+
+table! {
     device_types (id) {
         id -> Nullable<Integer>,
         name -> Nullable<Text>,
+        created_at -> Nullable<Timestamp>,
+        updated_at -> Nullable<Timestamp>,
+    }
+}
+
+table! {
+    device_watering_times (id) {
+        id -> Nullable<Integer>,
+        device_id -> Nullable<Integer>,
+        watering_time_id -> Nullable<Integer>,
         created_at -> Nullable<Timestamp>,
         updated_at -> Nullable<Timestamp>,
     }
@@ -73,7 +93,9 @@ table! {
 }
 
 allow_tables_to_appear_in_same_query!(
+    device_schedules,
     device_types,
+    device_watering_times,
     devices,
     schedules,
     sensor_types,

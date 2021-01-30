@@ -46,6 +46,28 @@ pub struct Sensor {
 }
 
 #[derive(Identifiable, Insertable, Associations, Queryable, Serialize, Deserialize, Debug)]
+#[belongs_to(Device)]
+#[belongs_to(WateringTime)]
+pub struct DeviceWateringTime {
+    pub id: Option<i32>,
+    pub watering_time_id: Option<i32>,
+    pub device_id: Option<i32>,
+    pub created_at: Option<NaiveDateTime>,
+    pub updated_at: Option<NaiveDateTime>,
+}
+
+#[derive(Identifiable, Insertable, Associations, Queryable, Serialize, Deserialize, Debug)]
+#[belongs_to(Device)]
+#[belongs_to(Schedule)]
+pub struct DeviceSchedule {
+    pub id: Option<i32>,
+    pub schedule_id: Option<i32>,
+    pub device_id: Option<i32>,
+    pub created_at: Option<NaiveDateTime>,
+    pub updated_at: Option<NaiveDateTime>,
+}
+
+#[derive(Identifiable, Insertable, Associations, Queryable, Serialize, Deserialize, Debug)]
 pub struct SensorType {
     pub id: Option<i32>,
     pub name: Option<String>,

@@ -37,6 +37,7 @@ table! {
         updated_at -> Nullable<Timestamp>,
         mac -> Nullable<Text>,
         ip -> Nullable<Text>,
+        show_in_dashboard -> Nullable<Integer>,
     }
 }
 

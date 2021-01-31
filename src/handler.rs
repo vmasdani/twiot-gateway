@@ -1,17 +1,21 @@
+use std::time::Duration;
+
 use crate::models::*;
 use crate::{helpermodels::*, schema};
-use actix_rt::blocking;
-use actix_web::{client::JsonPayloadError, delete, dev, get, post, web, HttpResponse, Responder};
+use actix_web::{
+    client::{self, JsonPayloadError},
+    delete,
+    dev::Path,
+    get, post, web, HttpResponse, Responder,
+};
+use diesel::SqliteConnection;
 use diesel::{
     prelude::*,
     r2d2::{self, ConnectionManager},
-    replace_into,
 };
-use diesel::{sql_function_body, SqliteConnection};
-use rumqttc::AsyncClient;
+use rumqttc::{AsyncClient, Client, Disconnect, Event, MqttOptions, QoS};
 use serde::{Deserialize, Serialize};
-use std::{any::Any, sync::Arc};
-use tokio::sync::{watch, Mutex};
+use tokio::{task, time};
 
 no_arg_sql_function!(
     last_insert_rowid,
@@ -34,6 +38,76 @@ struct DeviceIdentifier {
 pub async fn check_resp() -> impl Responder {
     println!("Req sent");
     HttpResponse::Ok().body("OK")
+}
+
+#[get("/test")]
+pub async fn test(pool: web::Data<DbPool>) -> impl Responder {
+    match pool.get() {
+        Ok(pool_res) => {
+            match web::block(move || {
+                use schema::device_types::dsl::*;
+
+                // Get latest
+                let found_device_type = device_types.find(1).first::<DeviceType>(&pool_res);
+
+                match found_device_type {
+                    Ok(mut device_type) => {
+                        device_type.name = Some("Node".to_string());
+
+                        diesel::replace_into(device_types)
+                            .values(&device_type)
+                            .execute(&pool_res);
+                    }
+                    Err(e) => {
+                        println!("{:?}", e);
+                    }
+                }
+
+                let latest_rowid = diesel::select(last_insert_rowid).get_result::<i32>(&pool_res);
+                let last_device_type = device_types
+                    .order_by(id.desc())
+                    .first::<DeviceType>(&pool_res);
+
+                println!("Latest row id: {:?}", latest_rowid);
+
+                match last_device_type {
+                    Ok(device_type) => {
+                        println!("Last device type (id desc) id: {:?}", device_type.id);
+                    }
+                    Err(e) => {
+                        println!("{:?}", e);
+                    }
+                }
+
+                latest_rowid
+            })
+            .await
+            {
+                Ok(latest_device_type) => HttpResponse::Ok().body(latest_device_type.to_string()),
+                Err(e) => HttpResponse::InternalServerError().body(format!("{:?}", e)),
+            }
+        }
+        Err(e) => HttpResponse::InternalServerError().body(e.to_string()),
+    }
+}
+
+#[get("/devicetypes")]
+pub async fn all_device_types(pool: web::Data<DbPool>) -> impl Responder {
+    match pool.get() {
+        Ok(pool_res) => {
+            match web::block(move || {
+                use schema::device_types::dsl::*;
+
+                device_types.load::<DeviceType>(&pool_res)
+            })
+            .await
+            {
+                Ok(device_types) => HttpResponse::Ok().json(device_types),
+                Err(e) => HttpResponse::InternalServerError().body(format!("{:?}", e)),
+            }
+        }
+        Err(e) => HttpResponse::InternalServerError().body(e.to_string()),
+    }
 }
 
 #[post("/register-device")]
@@ -81,6 +155,7 @@ pub async fn register_device(
                                 updated_at: None,
                                 mac: Some(device_identifier.mac.clone()),
                                 ip: Some(device_identifier.ip.clone()),
+                                show_in_dashboard: Some(1),
                             })
                             .execute(&pool_res);
 
@@ -138,32 +213,32 @@ pub async fn view_schedules(pool: web::Data<DbPool>) -> impl Responder {
                 match schedules.load::<Schedule>(&pool_res) {
                     Ok(schedules_res) => Ok(schedules_res
                         .into_iter()
-                        .map(|schedule| {
-                            let found_device_schedules: Result<Vec<DeviceSchedule>, _> =
-                                DeviceSchedule::belonging_to(&schedule).load(&pool_res);
+                        .map(|schedule| ScheduleView {
+                            schedule: Some(schedule.clone()),
+                            device_schedule_views: match DeviceSchedule::belonging_to(&schedule)
+                                .load(&pool_res)
+                                as Result<Vec<DeviceSchedule>, _>
+                            {
+                                Ok(found_device_schedules_res) => found_device_schedules_res
+                                    .into_iter()
+                                    .map(|device_schedule| {
+                                        use schema::devices::dsl::*;
 
-                            ScheduleView {
-                                schedule,
-                                devices: match found_device_schedules {
-                                    Ok(found_device_schedules_res) => found_device_schedules_res
-                                        .into_iter()
-                                        .map(|device_schedule| {
-                                            use schema::devices::dsl::*;
-
-                                            match devices
+                                        DeviceScheduleView {
+                                            device_schedule: Some(device_schedule.clone()),
+                                            schedule: Some(schedule.clone()),
+                                            device: match devices
                                                 .filter(id.eq(device_schedule.device_id))
                                                 .first::<Device>(&pool_res)
                                             {
                                                 Ok(dev) => Some(dev as Device),
                                                 _ => None,
-                                            }
-                                        })
-                                        .filter(|dev| dev.is_some())
-                                        .map(|dev| dev.unwrap())
-                                        .collect(),
-                                    _ => vec![],
-                                },
-                            }
+                                            },
+                                        }
+                                    })
+                                    .collect(),
+                                _ => vec![],
+                            },
                         })
                         .collect()),
                     Err(e) => Err(e),
@@ -239,13 +314,44 @@ pub async fn post_schedule(
 #[post("/schedules-save")]
 pub async fn save_schedule(
     pool: web::Data<DbPool>,
-    schedule: web::Json<ScheduleView>,
+    schedule_body: web::Json<ScheduleView>,
 ) -> impl Responder {
     match pool.get() {
         Ok(pool_res) => {
-            // let created =
+            match web::block(move || {
+                use schema::schedules::dsl::*;
 
-            HttpResponse::Created().body("OK")
+                diesel::replace_into(schedules)
+                    .values(&schedule_body.schedule)
+                    .execute(&pool_res);
+
+                let schedule_id = diesel::select(last_insert_rowid).get_result::<i32>(&pool_res);
+
+                match schedule_id {
+                    Ok(schedule_id_res) => {
+                        use schema::device_schedules::dsl::*;
+
+                        let saved_schedule: Result<Schedule, _> =
+                            schedules.find(schedule_id_res).first(&pool_res);
+
+                        schedule_body.device_schedule_views.iter().for_each(
+                            |device_schedule_view| {
+                                diesel::replace_into(device_schedules)
+                                    .values(device_schedule_view.device_schedule)
+                                    .execute(&pool_res);
+                            },
+                        );
+
+                        saved_schedule
+                    }
+                    Err(e) => Err(e),
+                }
+            })
+            .await
+            {
+                Ok(saved_schedule) => HttpResponse::Created().json(saved_schedule),
+                Err(e) => HttpResponse::InternalServerError().body(format!("{:?}", e)),
+            }
         }
         Err(e) => HttpResponse::InternalServerError().body(e.to_string()),
     }
@@ -387,4 +493,121 @@ pub async fn all_devices(pool: web::Data<DbPool>) -> impl Responder {
         }
         Err(e) => HttpResponse::InternalServerError().body(e.to_string()),
     }
+}
+
+#[get("/devices/{device_id}")]
+pub async fn get_device(pool: web::Data<DbPool>, device_id: web::Path<i32>) -> impl Responder {
+    match pool.get() {
+        Ok(pool_res) => {
+            match web::block(move || {
+                use schema::devices::dsl::*;
+                devices
+                    .find(device_id.into_inner())
+                    .first::<Device>(&pool_res)
+            })
+            .await
+            {
+                Ok(device) => HttpResponse::Ok().json(device),
+                Err(e) => HttpResponse::InternalServerError().body(format!("{:?}", e)),
+            }
+        }
+        Err(e) => HttpResponse::InternalServerError().body(e.to_string()),
+    }
+}
+
+#[post("/devices")]
+pub async fn post_device(
+    pool: web::Data<DbPool>,
+    device_data: web::Json<Device>,
+) -> impl Responder {
+    match pool.get() {
+        Ok(pool_res) => {
+            match web::block(move || {
+                use schema::devices::dsl::*;
+
+                diesel::replace_into(devices)
+                    .values(device_data.into_inner())
+                    .execute(&pool_res);
+
+                match diesel::select(last_insert_rowid).get_result::<i32>(&pool_res) {
+                    Ok(last_device_id) => devices.find(last_device_id).first::<Device>(&pool_res),
+                    Err(e) => Err(e),
+                }
+            })
+            .await
+            {
+                Ok(device) => HttpResponse::Ok().json(device),
+                Err(e) => HttpResponse::InternalServerError().body(format!("{:?}", e)),
+            }
+        }
+        Err(e) => HttpResponse::InternalServerError().body(e.to_string()),
+    }
+}
+
+#[derive(Deserialize, Serialize, Debug)]
+pub struct WaterBody {
+    pub id: i32,
+    pub water_on: bool,
+}
+
+#[derive(Deserialize, Serialize, Debug)]
+pub struct WaterSendBody {
+    pub water_on: bool,
+}
+
+#[post("/water")]
+pub async fn water(water_data: web::Json<WaterBody>) -> impl Responder {
+    let uuid_new = uuid::Uuid::new_v4().to_string();
+
+    let mut mqttoptions = MqttOptions::new(uuid_new.as_str(), "localhost", 1883);
+    mqttoptions.set_keep_alive(5);
+
+    let (mut client, mut eventloop) = AsyncClient::new(mqttoptions, 10);
+    client
+        .subscribe(format!("{}/water", water_data.id), QoS::AtMostOnce)
+        .await;
+
+    client
+        .publish(
+            format!("{}/water", water_data.id),
+            QoS::AtLeastOnce,
+            false,
+            serde_json::to_string(&WaterSendBody {
+                water_on: water_data.water_on,
+            })
+            .unwrap()
+            .as_bytes(),
+        )
+        .await;
+
+    // rumqttc::oneshot_publish(
+    //     uuid_new.as_str(),
+    //     "localhost",
+    //     1883,
+    //     QoS::AtLeastOnce,
+    //     false,
+    //     serde_json::to_string(&WaterSendBody {
+    //         water_on: water_data.water_on,
+    //     })
+    //     .unwrap()
+    //     .as_bytes(),
+    // );
+
+    client.disconnect().await;
+
+    loop {
+        match eventloop.poll().await {
+            Ok(Event::Outgoing(rumqttc::Outgoing::Disconnect)) => {
+                println!("Disconnect reached!");
+                break;
+            }
+            _ => {
+                println!("Irrelevant");
+            }
+        }
+    }
+
+    println!("Send OK");
+
+    HttpResponse::Ok().body("OK")
 }

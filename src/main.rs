@@ -7,6 +7,7 @@ mod mqtt;
 mod router;
 mod schema;
 mod serve;
+mod populate;
 
 use diesel::{
     r2d2::{self, ConnectionManager},
@@ -38,7 +39,7 @@ async fn main() {
         .expect("Failed to create db pool.");
 
     embedded_migrations::run(&conn).expect("Error running migrations.");
-    db::populate(&conn);
+    populate::populate(&conn);
 
     let client_arc = Arc::new(Mutex::new(client));
     let conn_arc = Arc::new(Mutex::new(conn));

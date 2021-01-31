@@ -2,7 +2,7 @@ use crate::schema::*;
 use chrono::NaiveDateTime;
 use serde::{Deserialize, Serialize};
 
-#[derive(Identifiable, Insertable, Queryable, Serialize, Deserialize, Debug)]
+#[derive(Identifiable, Insertable, Queryable, Serialize, Deserialize, Debug, Clone)]
 pub struct Schedule {
     pub id: Option<i32>,
     pub hour: Option<i32>,
@@ -19,7 +19,9 @@ pub struct WateringTime {
     pub updated_at: Option<NaiveDateTime>,
 }
 
-#[derive(Identifiable, Associations, Insertable, Queryable, Serialize, Deserialize, Debug)]
+#[derive(
+    Identifiable, Associations, Insertable, Queryable, Serialize, Deserialize, Debug, Clone,
+)]
 #[belongs_to(DeviceType)]
 pub struct Device {
     pub id: Option<i32>,
@@ -30,6 +32,7 @@ pub struct Device {
     pub updated_at: Option<NaiveDateTime>,
     pub mac: Option<String>,
     pub ip: Option<String>,
+    pub show_in_dashboard: Option<i32>,
 }
 
 #[derive(Identifiable, Insertable, Associations, Queryable, Serialize, Deserialize, Debug)]
@@ -56,7 +59,9 @@ pub struct DeviceWateringTime {
     pub updated_at: Option<NaiveDateTime>,
 }
 
-#[derive(Identifiable, Insertable, Associations, Queryable, Serialize, Deserialize, Debug)]
+#[derive(
+    Identifiable, Insertable, Associations, Queryable, Serialize, Deserialize, Debug, Clone, Copy,
+)]
 #[belongs_to(Device)]
 #[belongs_to(Schedule)]
 pub struct DeviceSchedule {

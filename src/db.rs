@@ -1,8 +1,16 @@
 use crate::models::*;
-use diesel::prelude::*;
+use actix_rt::time::delay_for;
+use chrono::{DateTime, Local, Timelike, Utc};
 use diesel::sqlite::SqliteConnection;
+use diesel::{
+    prelude::*,
+    r2d2::{ConnectionManager, Pool},
+};
 use dotenv::dotenv;
-use std::env;
+use std::{
+    env,
+    time::{Duration, Instant},
+};
 
 pub fn init() -> SqliteConnection {
     dotenv().ok();
@@ -14,3 +22,14 @@ pub fn init() -> SqliteConnection {
     sqlite_connection
 }
 
+pub async fn poller(pool: Pool<ConnectionManager<SqliteConnection>>) {
+    loop {
+        println!(
+            "[Checking!] {:?}, {}:{}",
+            Local::now(),
+            Local::now().hour(),
+            Local::now().minute()
+        );
+        tokio::time::delay_for(Duration::from_secs(60)).await;
+    }
+}

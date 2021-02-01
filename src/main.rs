@@ -4,11 +4,12 @@ mod helpermodels;
 mod ip_check;
 mod models;
 mod mqtt;
+mod populate;
 mod router;
 mod schema;
 mod serve;
-mod populate;
 
+use db::poller;
 use diesel::{
     r2d2::{self, ConnectionManager},
     SqliteConnection,
@@ -46,10 +47,12 @@ async fn main() {
 
     let mqtt_pool_clone = pool.clone();
     let pool_clone = pool.clone();
+    let poller_clone = pool.clone();
 
     tokio::join!(
         ip_check::run_loop(),
         mqtt::listen(mqtt_pool_clone, conn_arc, client_arc, &mut eventloop),
-        serve::run_actix(pool_clone)
+        serve::run_actix(pool_clone),
+        db::poller(poller_clone)
     );
 }

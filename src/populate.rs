@@ -65,6 +65,19 @@ pub fn populate(connection: &SqliteConnection) {
         }
     }
 
+    // Insert one schedule
+    let new_schedule = Schedule {
+        id: None,
+        hour: Some(23),
+        minute: Some(29),
+        created_at: None,
+        updated_at: None,
+    };
+
+    diesel::insert_into(schedules)
+        .values(&new_schedule)
+        .execute(connection);
+
     // Check device types
 
     vec!["Node", "Gateway"].into_iter().for_each(|device_name| {

@@ -1,8 +1,11 @@
 use crate::schema::*;
 use chrono::NaiveDateTime;
 use serde::{Deserialize, Serialize};
+use diesel::Identifiable;
 
-#[derive(Identifiable, Insertable, Queryable, Serialize, Deserialize, Debug, Clone)]
+#[derive(
+    Identifiable, Associations, Insertable, Queryable, Serialize, Deserialize, Debug, Clone,
+)]
 pub struct Schedule {
     pub id: Option<i32>,
     pub hour: Option<i32>,
@@ -64,6 +67,8 @@ pub struct DeviceWateringTime {
 )]
 #[belongs_to(Device)]
 #[belongs_to(Schedule)]
+// #[belongs_to(WateringTime)]
+
 pub struct DeviceSchedule {
     pub id: Option<i32>,
     pub schedule_id: Option<i32>,

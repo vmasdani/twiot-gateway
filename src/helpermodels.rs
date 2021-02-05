@@ -28,7 +28,14 @@ pub struct ScheduleView {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct DeviceScheduleView {
-    pub device_schedule: Option<DeviceSchedule>, 
+    pub device_schedule: Option<DeviceSchedule>,
     pub device: Option<Device>,
     pub schedule: Option<Schedule>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct SchedulePostBody {
+    pub schedule_views: Vec<ScheduleView>,
+    pub schedule_delete_ids: Vec<i32>,
+    pub device_schedule_delete_ids: Vec<i32>,
 }

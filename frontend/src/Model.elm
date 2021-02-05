@@ -3,6 +3,7 @@ module Model exposing (..)
 import Json.Decode as Decode exposing (Decoder)
 import Json.Decode.Pipeline as Pipeline
 import Json.Encode as Encode
+import Material.Icons exposing (devices)
 
 
 type alias Schedule =
@@ -230,4 +231,149 @@ deviceTypeEncoder deviceType =
 
             _ ->
                 ( "updated_at", Encode.null )
+        ]
+
+
+type alias DeviceSchedule =
+    { id : Maybe Int
+    , deviceId : Maybe Int
+    , scheduleId : Maybe Int
+    , createdAt : Maybe String
+    , updatedAt : Maybe String
+    }
+
+
+initialDeviceSchedule : DeviceSchedule
+initialDeviceSchedule =
+    { id = Nothing
+    , scheduleId = Nothing
+    , deviceId = Nothing
+    , createdAt = Nothing
+    , updatedAt = Nothing
+    }
+
+
+deviceScheduleDecoder : Decoder DeviceSchedule
+deviceScheduleDecoder =
+    Decode.succeed DeviceSchedule
+        |> Pipeline.required "id" (Decode.maybe Decode.int)
+        |> Pipeline.required "schedule_id" (Decode.maybe Decode.int)
+        |> Pipeline.required "device_id" (Decode.maybe Decode.int)
+        |> Pipeline.required "created_at" (Decode.maybe Decode.string)
+        |> Pipeline.required "updated_at" (Decode.maybe Decode.string)
+
+
+deviceScheduleEncoder : DeviceSchedule -> Encode.Value
+deviceScheduleEncoder deviceSchedule =
+    Encode.object
+        [ case deviceSchedule.id of
+            Just id ->
+                ( "id", Encode.int id )
+
+            _ ->
+                ( "id", Encode.null )
+        , case deviceSchedule.scheduleId of
+            Just scheduleId ->
+                ( "schedule_id", Encode.int scheduleId )
+
+            _ ->
+                ( "schedule_id", Encode.null )
+        , case deviceSchedule.deviceId of
+            Just deviceId ->
+                ( "device_id", Encode.int deviceId )
+
+            _ ->
+                ( "device_id", Encode.null )
+        , case deviceSchedule.createdAt of
+            Just createdAt ->
+                ( "created_at", Encode.string createdAt )
+
+            _ ->
+                ( "created_at", Encode.null )
+        , case deviceSchedule.updatedAt of
+            Just updatedAt ->
+                ( "updated_at", Encode.string updatedAt )
+
+            _ ->
+                ( "updated_at", Encode.null )
+        ]
+
+
+type alias DeviceScheduleView =
+    { deviceSchedule : Maybe DeviceSchedule
+    , device : Maybe Device
+    , schedule : Maybe Schedule
+    }
+
+
+initialDeviceScheduleView : DeviceScheduleView
+initialDeviceScheduleView =
+    { deviceSchedule = Nothing
+    , device = Nothing
+    , schedule = Nothing
+    }
+
+
+deviceScheduleViewDecoder : Decoder DeviceScheduleView
+deviceScheduleViewDecoder =
+    Decode.succeed DeviceScheduleView
+        |> Pipeline.required "deviceSchedule" (Decode.maybe deviceScheduleDecoder)
+        |> Pipeline.required "device" (Decode.maybe deviceDecoder)
+        |> Pipeline.required "schedule" (Decode.maybe scheduleDecoder)
+
+
+deviceScheduleViewEncoder : DeviceScheduleView -> Encode.Value
+deviceScheduleViewEncoder deviceScheduleView =
+    Encode.object
+        [ case deviceScheduleView.deviceSchedule of
+            Just deviceSchedule ->
+                ( "device_schedule", deviceScheduleEncoder deviceSchedule )
+
+            _ ->
+                ( "device_schedule", Encode.null )
+        , case deviceScheduleView.device of
+            Just device ->
+                ( "device", deviceEncoder device )
+
+            _ ->
+                ( "device", Encode.null )
+        , case deviceScheduleView.schedule of
+            Just schedule ->
+                ( "schedule", scheduleEncoder schedule )
+
+            _ ->
+                ( "schedule", Encode.null )
+        ]
+
+
+type alias ScheduleView =
+    { schedule : Maybe Schedule
+    , deviceScheduleView : List DeviceScheduleView
+    }
+
+
+initialScheduleView : ScheduleView
+initialScheduleView =
+    { schedule = Nothing
+    , deviceScheduleView = []
+    }
+
+
+scheduleViewDecoder : Decoder ScheduleView
+scheduleViewDecoder =
+    Decode.succeed ScheduleView
+        |> Pipeline.required "schedule" (Decode.maybe scheduleDecoder)
+        |> Pipeline.required "device_schedule_views" (Decode.list deviceScheduleViewDecoder)
+
+
+scheduleViewEncoder : ScheduleView -> Encode.Value
+scheduleViewEncoder scheduleView =
+    Encode.object
+        [ case scheduleView.schedule of
+            Just schedule ->
+                ( "device_schedule", scheduleEncoder schedule )
+
+            _ ->
+                ( "device_schedule", Encode.null )
+        , ( "device_schedule_views", Encode.list deviceScheduleViewEncoder scheduleView.deviceScheduleView )
         ]

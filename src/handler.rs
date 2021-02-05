@@ -314,44 +314,51 @@ pub async fn post_schedule(
 #[post("/schedules-save")]
 pub async fn save_schedule(
     pool: web::Data<DbPool>,
-    schedule_body: web::Json<ScheduleView>,
+    schedule_body: web::Json<SchedulePostBody>,
 ) -> impl Responder {
     match pool.get() {
         Ok(pool_res) => {
-            match web::block(move || {
+            web::block(move || {
                 use schema::schedules::dsl::*;
 
-                diesel::replace_into(schedules)
-                    .values(&schedule_body.schedule)
-                    .execute(&pool_res);
+                schedule_body
+                    .schedule_views
+                    .iter()
+                    .for_each(|schedule_view| {
+                        diesel::replace_into(schedules)
+                            .values(&schedule_view.schedule)
+                            .execute(&pool_res);
 
-                let schedule_id = diesel::select(last_insert_rowid).get_result::<i32>(&pool_res);
+                        let schedule_id =
+                            diesel::select(last_insert_rowid).get_result::<i32>(&pool_res);
 
-                match schedule_id {
-                    Ok(schedule_id_res) => {
-                        use schema::device_schedules::dsl::*;
+                        match schedule_id {
+                            Ok(schedule_id_res) => {
+                                use schema::device_schedules::dsl::*;
 
-                        let saved_schedule: Result<Schedule, _> =
-                            schedules.find(schedule_id_res).first(&pool_res);
+                                let saved_schedule: Result<Schedule, _> =
+                                    schedules.find(schedule_id_res).first(&pool_res);
 
-                        schedule_body.device_schedule_views.iter().for_each(
-                            |device_schedule_view| {
-                                diesel::replace_into(device_schedules)
-                                    .values(device_schedule_view.device_schedule)
-                                    .execute(&pool_res);
-                            },
-                        );
+                                schedule_view.device_schedule_views.iter().for_each(
+                                    |device_schedule_view| {
+                                        diesel::replace_into(device_schedules)
+                                            .values(device_schedule_view.device_schedule)
+                                            .execute(&pool_res);
+                                    },
+                                );
+                            }
+                            Err(e) => {
+                                println!("{:?}", e);
+                            }
+                        }
+                    });
 
-                        saved_schedule
-                    }
-                    Err(e) => Err(e),
-                }
+                // there should be a better way of doing this
+                diesel::select(last_insert_rowid).get_result::<i32>(&pool_res)
             })
-            .await
-            {
-                Ok(saved_schedule) => HttpResponse::Created().json(saved_schedule),
-                Err(e) => HttpResponse::InternalServerError().body(format!("{:?}", e)),
-            }
+            .await;
+
+            HttpResponse::Created().body("OK")
         }
         Err(e) => HttpResponse::InternalServerError().body(e.to_string()),
     }

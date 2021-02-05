@@ -5,7 +5,6 @@ module Main exposing (..)
 import Browser
 import Browser.Hash as Hash
 import Browser.Navigation as Nav
-import Css
 import HelperModel exposing (..)
 import Html exposing (..)
 import Html.Attributes exposing (..)
@@ -28,6 +27,7 @@ type Route
     = Home
     | Devices
     | DeviceDetail Int
+    | Schedules
     | NotFound
 
 
@@ -36,6 +36,7 @@ route =
     Parser.oneOf
         [ Parser.map Home Parser.top
         , Parser.map Devices (Parser.s "devices")
+        , Parser.map Schedules (Parser.s "schedules")
         , Parser.map DeviceDetail (Parser.s "devices" </> Parser.int)
         ]
 
@@ -91,6 +92,7 @@ type alias Model =
     , devices : List Device
     , schedules : List Schedule
     , requestStatus : RequestStatus
+    , scheduleView : List ScheduleView
     }
 
 
@@ -110,6 +112,12 @@ fetchBasedOnUrl model url =
             Http.get
                 { url = model.baseUrl ++ "/devices"
                 , expect = Http.expectJson GotDevices (Decode.list deviceDecoder)
+                }
+
+        Schedules ->
+            Http.get
+                { url = model.baseUrl ++ "/schedules-view"
+                , expect = Http.expectJson GotSchedulesView (Decode.list scheduleViewDecoder)
                 }
 
         DeviceDetail id ->
@@ -143,6 +151,7 @@ init flags url key =
             , device = initialDevice
             , schedules = []
             , requestStatus = NotAsked
+            , scheduleView = []
             }
     in
     ( initialModel
@@ -161,6 +170,7 @@ type Msg
     | GotDevices (Result Http.Error (List Device))
     | GotDevice (Result Http.Error Device)
     | GotDeviceTypes (Result Http.Error (List DeviceType))
+    | GotSchedulesView (Result Http.Error (List ScheduleView))
     | ChangeDeviceName String
     | ToggleDeviceShowInDashboard
     | SaveDeviceDetail
@@ -172,6 +182,15 @@ type Msg
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
+        GotSchedulesView res ->
+            case res of
+                Ok schedulesView ->
+                    ( { model | scheduleView = schedulesView }, Cmd.none )
+
+                Err e ->
+                    (Debug.log <| Debug.toString e)
+                        ( model, Cmd.none )
+
         OpenedValve _ ->
             ( model, Cmd.none )
 
@@ -303,79 +322,27 @@ view model =
                     ]
                 , div [ class "collapse navbar-collapse", id "navbarSupportedContent" ]
                     [ ul [ class "navbar-nav me-auto mb-2 mb-lg-0" ]
-                        [ -- li [ class "nav-item" ]
-                          -- [ a [ attribute "aria-current" "page", class "nav-link active", href "#" ]
-                          --     [ Html.text "Dashboard" ]
-                          -- ]
-                          li [ class "nav-item" ]
+                        [ li [ class "nav-item" ]
                             [ a [ class "nav-link active", href "#/devices" ]
                                 [ Html.text "Devices" ]
                             ]
-
-                        -- , li [ class "nav-item" ]
-                        --   [ a [ class "nav-link active", href "#/sensors" ]
-                        --     [ Html.text "Sensors" ]
-                        --   ]
-                        -- , li [ class "nav-item dropdown" ]
-                        --   [ a [ attribute "aria-expanded" "false", class "nav-link dropdown-toggle active", attribute "data-bs-toggle" "dropdown", href "#", id "navbarDropdown", attribute "role" "button" ]
-                        --     [ text "Dropdown          " ]
-                        --   , ul [ attribute "aria-labelledby" "navbarDropdown", class "dropdown-menu" ]
-                        --     [ li []
-                        --       [ a [ class "dropdown-item", href "#" ]
-                        --         [ text "Action" ]
-                        --       ]
-                        --     , li []
-                        --       [ a [ class "dropdown-item", href "#" ]
-                        --         [ text "Another action" ]
-                        --       ]
-                        --     , li []
-                        --       [ hr [ class "dropdown-divider" ]
-                        --         []
-                        --       ]
-                        --     , li []
-                        --       [ a [ class "dropdown-item", href "#" ]
-                        --         [ text "Something else here" ]
-                        --       ]
-                        --     ]
-                        --   ]
-                        -- , li [ class "nav-item" ]
-                        --   [ a [ attribute "aria-disabled" "true", class "nav-link  active", href "#", attribute "tabindex" "-1" ]
-                        --     [ text "Disabled" ]
-                        --   ]
+                        , li [ class "nav-item" ]
+                            [ a [ class "nav-link active", href "#/schedules" ]
+                                [ Html.text "Schedules" ]
+                            ]
                         ]
-
-                    -- , Html.form [ class "d-flex" ]
-                    --   [ input [ attribute "aria-label" "Search", class "form-control me-2", placeholder "Search", type_ "search" ]
-                    --     []
-                    --   , button [ class "btn btn-outline-success", type_ "submit" ]
-                    --     [ text "Search" ]
-                    --   ]
                     ]
                 ]
             ]
-
-        -- , Html.text "The current URL is: "
-        -- , b [] [ Html.text (Url.toString model.url) ]
-        -- , div []
-        --     [ Html.text
-        --         <| Debug.toString
-        --         <| toRoute
-        --         <| (Url.toString model.url)
-        --     ]
-        -- , ul []
-        --     [ viewLink "/#/"
-        --     , viewLink "/#/home"
-        --     , viewLink "/#/profile"
-        --     , viewLink "/#/reviews/the-century-of-the-self"
-        --     , viewLink "/#/reviews/public-opinion"
-        --     , viewLink "/#/reviews/shah-of-shahs"
-        --     ]
         , case toRoute (Url.toString model.url) of
             Home ->
                 dashboardView model
 
             Devices ->
                 devicesView model
+
+            Schedules ->
+                scheduleView model
 
             DeviceDetail id ->
                 deviceDetailView model
@@ -497,6 +464,34 @@ devicesView model =
                         ]
                 )
                 model.devices
+            )
+        ]
+
+
+scheduleView : Model -> Html Msg
+scheduleView model =
+    div [ class "m-3" ]
+        [ h3 [] [ text "Schedules " ]
+        , div []
+            (List.map
+                (\scheduleViewUnit ->
+                    case scheduleViewUnit.schedule of
+                        Just schedule ->
+                            div []
+                                [ div [] [ text <| "Schedule ID: " ++ String.fromInt (Maybe.withDefault 0 schedule.id) ]
+                                , div []
+                                    [ text <|
+                                        String.fromInt (Maybe.withDefault 0 schedule.hour)
+                                            ++ ":"
+                                            ++ String.fromInt (Maybe.withDefault 0 schedule.minute)
+                                    ]
+                                ]
+
+                        Nothing ->
+                            div []
+                                [ text "Error parsing schedule" ]
+                )
+                model.scheduleView
             )
         ]
 

@@ -485,6 +485,22 @@ scheduleView model =
                                             ++ ":"
                                             ++ String.fromInt (Maybe.withDefault 0 schedule.minute)
                                     ]
+                                , div [ class "d-flex" ]
+                                    [ select []
+                                        (List.map
+                                            (\num ->
+                                                option [] [ text <| String.fromInt num ]
+                                            )
+                                            (List.range 0 23)
+                                        )
+                                    , select []
+                                        (List.map
+                                            (\num ->
+                                                option [] [ text <| String.fromInt num ]
+                                            )
+                                            (List.range 0 59)
+                                        )
+                                    ]
                                 ]
 
                         Nothing ->

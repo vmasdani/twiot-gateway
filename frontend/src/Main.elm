@@ -177,11 +177,61 @@ type Msg
     | SavedDevice (Result Http.Error ())
     | ValveOpen Int Bool
     | OpenedValve (Result Http.Error ())
+    | ChangeScheduleHour Int String
+    | ChangeScheduleMinute Int String
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
+        ChangeScheduleHour i s ->
+            let
+                newScheduleView =
+                    List.map
+                        (\scheduleViewX ->
+                            case scheduleViewX.schedule of
+                                Just schedule ->
+                                    let
+                                        newSchedule =
+                                            if schedule.id == Just i then
+                                                { schedule | hour = String.toInt s }
+
+                                            else
+                                                schedule
+                                    in
+                                    { scheduleViewX | schedule = Just newSchedule }
+
+                                _ ->
+                                    scheduleViewX
+                        )
+                        model.scheduleView
+            in
+            ( { model | scheduleView = newScheduleView }, Cmd.none )
+
+        ChangeScheduleMinute i s ->
+            let
+                newScheduleView =
+                    List.map
+                        (\scheduleViewX ->
+                            case scheduleViewX.schedule of
+                                Just schedule ->
+                                    let
+                                        newSchedule =
+                                            if schedule.id == Just i then
+                                                { schedule | minute = String.toInt s }
+
+                                            else
+                                                schedule
+                                    in
+                                    { scheduleViewX | schedule = Just newSchedule }
+
+                                _ ->
+                                    scheduleViewX
+                        )
+                        model.scheduleView
+            in
+            ( { model | scheduleView = newScheduleView }, Cmd.none )
+
         GotSchedulesView res ->
             case res of
                 Ok schedulesView ->
@@ -477,8 +527,13 @@ scheduleView model =
                 (\scheduleViewUnit ->
                     case scheduleViewUnit.schedule of
                         Just schedule ->
-                            div []
-                                [ div [] [ text <| "Schedule ID: " ++ String.fromInt (Maybe.withDefault 0 schedule.id) ]
+                            div [ class "d-flex justify-content-center align-items-center card shadow p-2 my-2" ]
+                                [ div []
+                                    [ button
+                                        [ class "btn btn-danger btn-sm" ]
+                                        [ text "Delete" ]
+                                    ]
+                                , div [] [ text <| "Schedule ID: " ++ String.fromInt (Maybe.withDefault 0 schedule.id) ]
                                 , div []
                                     [ text <|
                                         String.fromInt (Maybe.withDefault 0 schedule.hour)
@@ -486,17 +541,27 @@ scheduleView model =
                                             ++ String.fromInt (Maybe.withDefault 0 schedule.minute)
                                     ]
                                 , div [ class "d-flex" ]
-                                    [ select []
+                                    [ select
+                                        [ onInput (ChangeScheduleHour <| Maybe.withDefault 0 schedule.id)
+                                        , value <| String.fromInt <| Maybe.withDefault 0 schedule.hour
+                                        ]
                                         (List.map
                                             (\num ->
-                                                option [] [ text <| String.fromInt num ]
+                                                option
+                                                    [ value <| String.fromInt num ]
+                                                    [ text <| String.fromInt num ]
                                             )
                                             (List.range 0 23)
                                         )
-                                    , select []
+                                    , select
+                                        [ onInput (ChangeScheduleMinute <| Maybe.withDefault 0 schedule.id)
+                                        , value <| String.fromInt <| Maybe.withDefault 0 schedule.minute
+                                        ]
                                         (List.map
                                             (\num ->
-                                                option [] [ text <| String.fromInt num ]
+                                                option
+                                                    [ value <| String.fromInt num ]
+                                                    [ text <| String.fromInt num ]
                                             )
                                             (List.range 0 59)
                                         )

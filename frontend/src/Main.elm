@@ -1,7 +1,8 @@
-module Main exposing (..)
+port module Main exposing (..)
 
 -- import Html.Styled.Attributes exposing (css)
 
+import Array
 import Browser
 import Browser.Hash as Hash
 import Browser.Navigation as Nav
@@ -13,14 +14,21 @@ import Html.Styled.Attributes exposing (css)
 import Http
 import Json.Decode as Decode
 import Json.Encode as Encode
+import List exposing (filterMap)
 import List.Extra
 import Material.Icons
 import Material.Icons.Types exposing (Coloring(..))
-import Maybe
+import Maybe exposing (withDefault)
 import Model exposing (..)
 import Svg exposing (path, svg)
 import Url
 import Url.Parser as Parser exposing ((</>), Parser)
+
+
+port deleteSchedule : Schedule -> Cmd msg
+
+
+port scheduleDeleteRecv : (Schedule -> msg) -> Sub msg
 
 
 type Route
@@ -93,12 +101,14 @@ type alias Model =
     , schedules : List Schedule
     , requestStatus : RequestStatus
     , scheduleView : List ScheduleView
+    , scheduleDeleteIds : List Int
+    , deviceScheduleDeleteIds : List Int
     }
 
 
 fetchBasedOnUrl : Model -> Url.Url -> Cmd Msg
 fetchBasedOnUrl model url =
-    -- (Debug.log <| "FetchBasedOnUrl: " ++ Url.toString url)
+    -- -- (Debug.log <| "FetchBasedOnUrl: " ++ Url.toString url)
     case toRoute (Url.toString url) of
         Home ->
             Cmd.batch
@@ -138,6 +148,14 @@ fetchDeviceTypes model =
         }
 
 
+fetchDevices : Model -> Cmd Msg
+fetchDevices model =
+    Http.get
+        { url = model.baseUrl ++ "/devices"
+        , expect = Http.expectJson GotDevices (Decode.list deviceDecoder)
+        }
+
+
 init : Flag -> Url.Url -> Nav.Key -> ( Model, Cmd Msg )
 init flags url key =
     let
@@ -152,10 +170,16 @@ init flags url key =
             , schedules = []
             , requestStatus = NotAsked
             , scheduleView = []
+            , scheduleDeleteIds = []
+            , deviceScheduleDeleteIds = []
             }
     in
     ( initialModel
-    , Cmd.batch [ fetchBasedOnUrl initialModel url, fetchDeviceTypes initialModel ]
+    , Cmd.batch
+        [ fetchBasedOnUrl initialModel url
+        , fetchDeviceTypes initialModel
+        , fetchDevices initialModel
+        ]
     )
 
 
@@ -179,11 +203,225 @@ type Msg
     | OpenedValve (Result Http.Error ())
     | ChangeScheduleHour Int String
     | ChangeScheduleMinute Int String
+    | DeleteSchedule Schedule
+    | ScheduleDeleteRecv Int
+    | InsertScheduleDevice Int String
+    | DeleteDeviceSchedule Int Int
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
+        DeleteDeviceSchedule scheduleIndex deviceScheduleIndex ->
+            let
+                foundScheduleView =
+                    model.scheduleView
+                        |> List.indexedMap
+                            (\iScheduleViewUnit scheduleViewUnit ->
+                                case scheduleViewUnit.schedule of
+                                    Just schedule ->
+                                        if iScheduleViewUnit /= scheduleIndex then
+                                            Just scheduleViewUnit
+
+                                        else
+                                            Nothing
+
+                                    _ ->
+                                        Nothing
+                            )
+                        |> filterMap identity
+                        |> Array.fromList
+                        |> Array.get 0
+
+                foundDeviceScheduleId =
+                    case foundScheduleView of
+                        Just scheduleViewX ->
+                            case
+                                scheduleViewX.deviceScheduleView
+                                    |> List.indexedMap
+                                        (\iDeviceScheduleViewX deviceScheduleViewX ->
+                                            if iDeviceScheduleViewX /= deviceScheduleIndex then
+                                                Just deviceScheduleViewX
+
+                                            else
+                                                Nothing
+                                        )
+                                    |> List.filterMap identity
+                                    |> Array.fromList
+                                    |> Array.get 0
+                            of
+                                Just deviceScheduleViewX ->
+                                    case deviceScheduleViewX.deviceSchedule of
+                                        Just deviceSchedule ->
+                                            withDefault 0 deviceSchedule.id
+
+                                        _ ->
+                                            0
+
+                                _ ->
+                                    0
+
+                        _ ->
+                            0
+
+                newScheduleView =
+                    List.indexedMap
+                        (\ixScheduleViewX scheduleViewX ->
+                            if ixScheduleViewX == scheduleIndex then
+                                { scheduleViewX
+                                    | deviceScheduleView =
+                                        scheduleViewX.deviceScheduleView
+                                            |> List.indexedMap
+                                                (\iDeviceScheduleViewX deviceScheduleViewX ->
+                                                    if iDeviceScheduleViewX == deviceScheduleIndex then
+                                                        Nothing
+
+                                                    else
+                                                        Just deviceScheduleViewX
+                                                )
+                                            |> filterMap identity
+                                }
+
+                            else
+                                scheduleViewX
+                        )
+                        model.scheduleView
+            in
+            ( { model
+                | scheduleView = newScheduleView
+                , deviceScheduleDeleteIds = model.deviceScheduleDeleteIds ++ [ foundDeviceScheduleId ]
+              }
+            , Cmd.none
+            )
+
+        InsertScheduleDevice scheduleId deviceIdString ->
+            let
+                newScheduleViews =
+                    if deviceIdString /= "" then
+                        List.map
+                            (\scheduleViewX ->
+                                case scheduleViewX.schedule of
+                                    Just schedule ->
+                                        if schedule.id == Just scheduleId then
+                                            case
+                                                List.Extra.find
+                                                    (\deviceScheduleView ->
+                                                        case deviceScheduleView.device of
+                                                            Just device ->
+                                                                if (String.fromInt <| Maybe.withDefault 0 device.id) == deviceIdString then
+                                                                    True
+
+                                                                else
+                                                                    False
+
+                                                            _ ->
+                                                                False
+                                                    )
+                                                    scheduleViewX.deviceScheduleView
+                                            of
+                                                Just _ ->
+                                                    scheduleViewX
+
+                                                _ ->
+                                                    let
+                                                        foundDevice =
+                                                            List.Extra.find
+                                                                (\device -> (String.fromInt <| Maybe.withDefault 0 device.id) == deviceIdString)
+                                                                model.devices
+
+                                                        newDeviceScheduleView =
+                                                            scheduleViewX.deviceScheduleView
+                                                                ++ [ { device = foundDevice
+                                                                     , schedule = Just schedule
+                                                                     , deviceSchedule =
+                                                                        Just
+                                                                            { initialDeviceSchedule
+                                                                                | deviceId =
+                                                                                    case foundDevice of
+                                                                                        Just device ->
+                                                                                            Just (withDefault 0 device.id)
+
+                                                                                        _ ->
+                                                                                            Nothing
+                                                                                , scheduleId = Just (withDefault 0 schedule.id)
+                                                                            }
+                                                                     }
+                                                                   ]
+                                                    in
+                                                    { scheduleViewX | deviceScheduleView = newDeviceScheduleView }
+
+                                        else
+                                            scheduleViewX
+
+                                    _ ->
+                                        scheduleViewX
+                            )
+                            model.scheduleView
+
+                    else
+                        model.scheduleView
+            in
+            (Debug.log <|
+                String.concat
+                    [ "Schedule ID: "
+                    , String.fromInt scheduleId
+                    , ", Device ID: "
+                    , deviceIdString
+                    , ", Device ID = empty: "
+                    , Debug.toString <| deviceIdString == ""
+                    ]
+            )
+                ( { model | scheduleView = newScheduleViews }, Cmd.none )
+
+        ScheduleDeleteRecv scheduleIndex ->
+            let
+                foundSchedule =
+                    model.scheduleView
+                        |> List.indexedMap
+                            (\ix scheduleViewX ->
+                                if ix == scheduleIndex then
+                                    Just scheduleViewX
+
+                                else
+                                    Nothing
+                            )
+                        |> List.filterMap identity
+                        |> Array.fromList
+                        |> Array.get 0
+            in
+            ( { model
+                | scheduleView =
+                    model.scheduleView
+                        |> List.indexedMap
+                            (\iScheduleViewUnit scheduleViewUnit ->
+                                if iScheduleViewUnit /= scheduleIndex then
+                                    Just scheduleViewUnit
+
+                                else
+                                    Nothing
+                            )
+                        |> List.filterMap identity
+                , scheduleDeleteIds =
+                    model.scheduleDeleteIds
+                        ++ [ case foundSchedule of
+                                Just foundScheduleView ->
+                                    case foundScheduleView.schedule of
+                                        Just schedule ->
+                                            withDefault 0 schedule.id
+
+                                        _ ->
+                                            0
+
+                                _ ->
+                                    0
+                           ]
+              }
+            , Cmd.none
+            )
+
+        DeleteSchedule schedule ->
+            ( model, deleteSchedule schedule )
+
         ChangeScheduleHour i s ->
             let
                 newScheduleView =
@@ -237,9 +475,9 @@ update msg model =
                 Ok schedulesView ->
                     ( { model | scheduleView = schedulesView }, Cmd.none )
 
-                Err e ->
-                    (Debug.log <| Debug.toString e)
-                        ( model, Cmd.none )
+                Err _ ->
+                    -- (Debug.log <| Debug.toString e)
+                    ( model, Cmd.none )
 
         OpenedValve _ ->
             ( model, Cmd.none )
@@ -257,7 +495,7 @@ update msg model =
             ( model, Nav.pushUrl model.key "/#/devices" )
 
         SaveDeviceDetail ->
-            -- (Debug.log <| "JSON encoded:" ++ Encode.encode 0 (deviceEncoder model.device))
+            -- -- (Debug.log <| "JSON encoded:" ++ Encode.encode 0 (deviceEncoder model.device))
             --     ( model, Cmd.none )
             ( model
             , Http.post
@@ -335,10 +573,10 @@ update msg model =
                     ( model, Nav.load href )
 
         UrlChanged url ->
-            (Debug.log <| Debug.toString url)
-                ( { model | url = url }
-                , fetchBasedOnUrl model url
-                )
+            -- (Debug.log <| Debug.toString url)
+            ( { model | url = url }
+            , fetchBasedOnUrl model url
+            )
 
 
 
@@ -347,7 +585,8 @@ update msg model =
 
 subscriptions : Model -> Sub Msg
 subscriptions _ =
-    Sub.none
+    Sub.batch
+        []
 
 
 
@@ -521,26 +760,27 @@ devicesView model =
 scheduleView : Model -> Html Msg
 scheduleView model =
     div [ class "m-3" ]
-        [ h3 [] [ text "Schedules " ]
+        [ div
+            [ class "d-flex justify-content-between align-items-center" ]
+            [ h3 [] [ text "Schedules " ]
+            , div [] [ button [ class "btn btn-sm btn-success" ] [ text "Save" ] ]
+            ]
         , div []
-            (List.map
-                (\scheduleViewUnit ->
+            (List.indexedMap
+                (\iScheduleViewUnit scheduleViewUnit ->
                     case scheduleViewUnit.schedule of
                         Just schedule ->
                             div [ class "d-flex justify-content-center align-items-center card shadow p-2 my-2" ]
                                 [ div []
                                     [ button
-                                        [ class "btn btn-danger btn-sm" ]
+                                        [ class "btn btn-danger btn-sm"
+                                        , onClick (ScheduleDeleteRecv iScheduleViewUnit)
+                                        ]
                                         [ text "Delete" ]
                                     ]
-                                , div [] [ text <| "Schedule ID: " ++ String.fromInt (Maybe.withDefault 0 schedule.id) ]
-                                , div []
-                                    [ text <|
-                                        String.fromInt (Maybe.withDefault 0 schedule.hour)
-                                            ++ ":"
-                                            ++ String.fromInt (Maybe.withDefault 0 schedule.minute)
-                                    ]
-                                , div [ class "d-flex" ]
+
+                                -- , div [] [ text <| "Schedule ID: " ++ String.fromInt (Maybe.withDefault 0 schedule.id) ]
+                                , div [ class "d-flex mt-3" ]
                                     [ select
                                         [ onInput (ChangeScheduleHour <| Maybe.withDefault 0 schedule.id)
                                         , value <| String.fromInt <| Maybe.withDefault 0 schedule.hour
@@ -565,7 +805,58 @@ scheduleView model =
                                             )
                                             (List.range 0 59)
                                         )
+                                    , div []
+                                        [ text <|
+                                            String.fromInt (Maybe.withDefault 0 schedule.hour)
+                                                ++ ":"
+                                                ++ String.fromInt (Maybe.withDefault 0 schedule.minute)
+                                        ]
                                     ]
+                                , div [ class "d-flex align-items-center" ]
+                                    [ div [] [ text "For devices: " ]
+                                    , div []
+                                        [ select
+                                            [ onInput <|
+                                                (InsertScheduleDevice <|
+                                                    Maybe.withDefault 0 schedule.id
+                                                )
+                                            ]
+                                            ([ option [] [] ]
+                                                ++ List.map
+                                                    (\device ->
+                                                        option
+                                                            [ value <| String.fromInt <| Maybe.withDefault 0 device.id ]
+                                                            [ text <| Maybe.withDefault "" device.name ]
+                                                    )
+                                                    model.devices
+                                            )
+                                        ]
+                                    ]
+                                , div [ class "d-flex flex-wrap" ]
+                                    (List.indexedMap
+                                        (\iDeviceScheduleX deviceScheduleX ->
+                                            div
+                                                [ style "cursor" "pointer"
+                                                , class "px-2 py-1 text-light bg-secondary rounded fw-bold"
+                                                , onClick <|
+                                                    DeleteDeviceSchedule
+                                                        iScheduleViewUnit
+                                                        iDeviceScheduleX
+                                                ]
+                                                [ text <|
+                                                    case deviceScheduleX.device of
+                                                        Just device ->
+                                                            withDefault "" device.name
+
+                                                        _ ->
+                                                            "Error"
+                                                ]
+                                        )
+                                        scheduleViewUnit.deviceScheduleView
+                                    )
+
+                                -- , div []
+                                --     [ text <| Debug.toString scheduleViewUnit.deviceScheduleView ]
                                 ]
 
                         Nothing ->

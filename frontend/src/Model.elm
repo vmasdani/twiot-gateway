@@ -377,3 +377,44 @@ scheduleViewEncoder scheduleView =
                 ( "device_schedule", Encode.null )
         , ( "device_schedule_views", Encode.list deviceScheduleViewEncoder scheduleView.deviceScheduleView )
         ]
+
+
+type alias SchedulePostBody =
+    { schedule : Maybe Schedule
+    , deviceScheduleView : List DeviceScheduleView
+    , scheduleDeleteIds : List Int
+    , deviceScheduleDeleteIds : List Int
+    }
+
+
+initialSchedulePostBody : SchedulePostBody
+initialSchedulePostBody =
+    { schedule = Nothing
+    , deviceScheduleView = []
+    , scheduleDeleteIds = []
+    , deviceScheduleDeleteIds = []
+    }
+
+
+schedulePostBodyDecoder : Decoder SchedulePostBody
+schedulePostBodyDecoder =
+    Decode.succeed SchedulePostBody
+        |> Pipeline.required "schedule" (Decode.maybe scheduleDecoder)
+        |> Pipeline.required "device_schedule_views" (Decode.list deviceScheduleViewDecoder)
+        |> Pipeline.required "schedule_delete_ids" (Decode.list Decode.int)
+        |> Pipeline.required "device_schedule_delete_ids" (Decode.list Decode.int)
+
+
+schedulePostBodyEncoder : SchedulePostBody -> Encode.Value
+schedulePostBodyEncoder schedulePostBody =
+    Encode.object
+        [ case schedulePostBody.schedule of
+            Just schedule ->
+                ( "device_schedule", scheduleEncoder schedule )
+
+            _ ->
+                ( "device_schedule", Encode.null )
+        , ( "device_schedule_views", Encode.list deviceScheduleViewEncoder schedulePostBody.deviceScheduleView )
+        , ( "schedule_delete_ids", Encode.list Encode.int schedulePostBody.scheduleDeleteIds )
+        , ( "device_schedule_delete_ids", Encode.list Encode.int schedulePostBody.deviceScheduleDeleteIds )
+        ]

@@ -1,7 +1,7 @@
 use crate::schema::*;
 use chrono::NaiveDateTime;
-use serde::{Deserialize, Serialize};
 use diesel::Identifiable;
+use serde::{Deserialize, Serialize};
 
 #[derive(
     Identifiable, Associations, Insertable, Queryable, Serialize, Deserialize, Debug, Clone,
@@ -12,6 +12,7 @@ pub struct Schedule {
     pub minute: Option<i32>,
     pub created_at: Option<NaiveDateTime>,
     pub updated_at: Option<NaiveDateTime>,
+    pub watering_secs: Option<i32>,
 }
 
 #[derive(Identifiable, Insertable, Queryable, Serialize, Deserialize, Debug)]
@@ -71,8 +72,8 @@ pub struct DeviceWateringTime {
 
 pub struct DeviceSchedule {
     pub id: Option<i32>,
-    pub schedule_id: Option<i32>,
     pub device_id: Option<i32>,
+    pub schedule_id: Option<i32>,
     pub created_at: Option<NaiveDateTime>,
     pub updated_at: Option<NaiveDateTime>,
 }

@@ -12,6 +12,7 @@ type alias Schedule =
     , minute : Maybe Int
     , createdAt : Maybe String
     , updatedAt : Maybe String
+    , wateringSecs : Maybe Int
     }
 
 
@@ -22,6 +23,7 @@ initialSchedule =
     , minute = Just 0
     , createdAt = Nothing
     , updatedAt = Nothing
+    , wateringSecs = Just 10
     }
 
 
@@ -33,6 +35,7 @@ scheduleDecoder =
         |> Pipeline.required "minute" (Decode.maybe Decode.int)
         |> Pipeline.required "created_at" (Decode.maybe Decode.string)
         |> Pipeline.required "updated_at" (Decode.maybe Decode.string)
+        |> Pipeline.required "watering_secs" (Decode.maybe Decode.int)
 
 
 scheduleEncoder : Schedule -> Encode.Value
@@ -45,7 +48,7 @@ scheduleEncoder schedule =
             _ ->
                 ( "id", Encode.null )
         , ( "hour", Encode.int (Maybe.withDefault 0 schedule.hour) )
-        , ( "minute", Encode.int (Maybe.withDefault 0 schedule.hour) )
+        , ( "minute", Encode.int (Maybe.withDefault 0 schedule.minute) )
         , case schedule.createdAt of
             Just createdAt ->
                 ( "created_at", Encode.string createdAt )
@@ -58,6 +61,7 @@ scheduleEncoder schedule =
 
             _ ->
                 ( "updated_at", Encode.null )
+        , ( "watering_secs", Encode.int (Maybe.withDefault 0 schedule.wateringSecs) )
         ]
 
 
@@ -317,7 +321,7 @@ initialDeviceScheduleView =
 deviceScheduleViewDecoder : Decoder DeviceScheduleView
 deviceScheduleViewDecoder =
     Decode.succeed DeviceScheduleView
-        |> Pipeline.required "deviceSchedule" (Decode.maybe deviceScheduleDecoder)
+        |> Pipeline.required "device_schedule" (Decode.maybe deviceScheduleDecoder)
         |> Pipeline.required "device" (Decode.maybe deviceDecoder)
         |> Pipeline.required "schedule" (Decode.maybe scheduleDecoder)
 
@@ -371,17 +375,16 @@ scheduleViewEncoder scheduleView =
     Encode.object
         [ case scheduleView.schedule of
             Just schedule ->
-                ( "device_schedule", scheduleEncoder schedule )
+                ( "schedule", scheduleEncoder schedule )
 
             _ ->
-                ( "device_schedule", Encode.null )
+                ( "schedule", Encode.null )
         , ( "device_schedule_views", Encode.list deviceScheduleViewEncoder scheduleView.deviceScheduleView )
         ]
 
 
 type alias SchedulePostBody =
-    { schedule : Maybe Schedule
-    , deviceScheduleView : List DeviceScheduleView
+    { scheduleViews : List ScheduleView
     , scheduleDeleteIds : List Int
     , deviceScheduleDeleteIds : List Int
     }
@@ -389,8 +392,7 @@ type alias SchedulePostBody =
 
 initialSchedulePostBody : SchedulePostBody
 initialSchedulePostBody =
-    { schedule = Nothing
-    , deviceScheduleView = []
+    { scheduleViews = []
     , scheduleDeleteIds = []
     , deviceScheduleDeleteIds = []
     }
@@ -399,8 +401,7 @@ initialSchedulePostBody =
 schedulePostBodyDecoder : Decoder SchedulePostBody
 schedulePostBodyDecoder =
     Decode.succeed SchedulePostBody
-        |> Pipeline.required "schedule" (Decode.maybe scheduleDecoder)
-        |> Pipeline.required "device_schedule_views" (Decode.list deviceScheduleViewDecoder)
+        |> Pipeline.required "schedule_views" (Decode.list scheduleViewDecoder)
         |> Pipeline.required "schedule_delete_ids" (Decode.list Decode.int)
         |> Pipeline.required "device_schedule_delete_ids" (Decode.list Decode.int)
 
@@ -408,13 +409,7 @@ schedulePostBodyDecoder =
 schedulePostBodyEncoder : SchedulePostBody -> Encode.Value
 schedulePostBodyEncoder schedulePostBody =
     Encode.object
-        [ case schedulePostBody.schedule of
-            Just schedule ->
-                ( "device_schedule", scheduleEncoder schedule )
-
-            _ ->
-                ( "device_schedule", Encode.null )
-        , ( "device_schedule_views", Encode.list deviceScheduleViewEncoder schedulePostBody.deviceScheduleView )
+        [ ( "schedule_views", Encode.list scheduleViewEncoder schedulePostBody.scheduleViews )
         , ( "schedule_delete_ids", Encode.list Encode.int schedulePostBody.scheduleDeleteIds )
         , ( "device_schedule_delete_ids", Encode.list Encode.int schedulePostBody.deviceScheduleDeleteIds )
         ]

@@ -316,9 +316,10 @@ pub async fn save_schedule(
     pool: web::Data<DbPool>,
     schedule_body: web::Json<SchedulePostBody>,
 ) -> impl Responder {
+    println!("{:#?}", schedule_body);
     match pool.get() {
         Ok(pool_res) => {
-            web::block(move || {
+            match web::block(move || {
                 use schema::schedules::dsl::*;
 
                 schedule_body
@@ -339,11 +340,25 @@ pub async fn save_schedule(
                                 let saved_schedule: Result<Schedule, _> =
                                     schedules.find(schedule_id_res).first(&pool_res);
 
+                                println!("Saved schjedule: {:?}", saved_schedule);
+
                                 schedule_view.device_schedule_views.iter().for_each(
                                     |device_schedule_view| {
-                                        diesel::replace_into(device_schedules)
-                                            .values(device_schedule_view.device_schedule)
-                                            .execute(&pool_res);
+                                        println!(
+                                            "Device schedule view: {:?}",
+                                            device_schedule_view
+                                        );
+                                        match device_schedule_view.device_schedule {
+                                            Some(mut device_schedule) => {
+                                                device_schedule.schedule_id = Some(schedule_id_res);
+
+                                                diesel::replace_into(device_schedules)
+                                                    .values(device_schedule)
+                                                    .execute(&pool_res);
+                                            }
+
+                                            None => println!("Device schedule none"),
+                                        }
                                     },
                                 );
                             }
@@ -353,12 +368,34 @@ pub async fn save_schedule(
                         }
                     });
 
+                schedule_body
+                    .schedule_delete_ids
+                    .iter()
+                    .for_each(|schedule_id| {
+                        use schema::schedules::dsl::*;
+
+                        diesel::delete(schedules.filter(id.eq(schedule_id))).execute(&pool_res);
+                    });
+
+                schedule_body
+                    .device_schedule_delete_ids
+                    .iter()
+                    .for_each(|device_schedule_id| {
+                        println!("Device schedule id to delet: {}", device_schedule_id);
+                        use schema::device_schedules::dsl::*;
+
+                        diesel::delete(device_schedules.filter(id.eq(device_schedule_id)))
+                            .execute(&pool_res);
+                    });
+
                 // there should be a better way of doing this
                 diesel::select(last_insert_rowid).get_result::<i32>(&pool_res)
             })
-            .await;
-
-            HttpResponse::Created().body("OK")
+            .await
+            {
+                Ok(_) => HttpResponse::Created().body("OK"),
+                Err(e) => HttpResponse::InternalServerError().body(format!("{:?}", e)),
+            }
         }
         Err(e) => HttpResponse::InternalServerError().body(e.to_string()),
     }

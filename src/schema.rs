@@ -48,6 +48,7 @@ table! {
         minute -> Nullable<Integer>,
         created_at -> Nullable<Timestamp>,
         updated_at -> Nullable<Timestamp>,
+        watering_secs -> Nullable<Integer>,
     }
 }
 

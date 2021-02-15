@@ -38,6 +38,7 @@ pub async fn run_actix(pool: Pool<ConnectionManager<SqliteConnection>>) -> std::
             .service(post_schedule)
             .service(get_schedule)
             .service(delete_schedule)
+            .service(save_schedule)
             // Watering time
             .service(all_wateringtimes)
             .service(post_wateringtime)

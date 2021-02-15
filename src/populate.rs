@@ -53,6 +53,7 @@ pub fn populate(connection: &SqliteConnection) {
                     minute: Some(0),
                     created_at: None,
                     updated_at: None,
+                    watering_secs: Some(10),
                 };
 
                 diesel::insert_into(schedules)
@@ -65,18 +66,18 @@ pub fn populate(connection: &SqliteConnection) {
         }
     }
 
-    // Insert one schedule
-    let new_schedule = Schedule {
-        id: None,
-        hour: Some(23),
-        minute: Some(29),
-        created_at: None,
-        updated_at: None,
-    };
+    // // Insert one schedule
+    // let new_schedule = Schedule {
+    //     id: None,
+    //     hour: Some(23),
+    //     minute: Some(29),
+    //     created_at: None,
+    //     updated_at: None,
+    // };
 
-    diesel::insert_into(schedules)
-        .values(&new_schedule)
-        .execute(connection);
+    // diesel::insert_into(schedules)
+    //     .values(&new_schedule)
+    //     .execute(connection);
 
     // Check device types
 

@@ -203,15 +203,71 @@ type Msg
     | OpenedValve (Result Http.Error ())
     | ChangeScheduleHour Int String
     | ChangeScheduleMinute Int String
+    | ChangeScheduleWateringTime Int String
     | DeleteSchedule Schedule
     | ScheduleDeleteRecv Int
     | InsertScheduleDevice Int String
+    | InsertSchedule
     | DeleteDeviceSchedule Int Int
+    | SaveSchedules
+    | SavedSchedules (Result Http.Error ())
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
+        InsertSchedule ->
+            ( { model
+                | scheduleView =
+                    model.scheduleView
+                        ++ [ { initialScheduleView
+                                | schedule = Just initialSchedule
+                             }
+                           ]
+              }
+            , Cmd.none
+            )
+
+        SavedSchedules res ->
+            ( model, Cmd.none )
+
+        SaveSchedules ->
+            let
+                encodedSchedulePostBody =
+                    Encode.encode 0
+                        (schedulePostBodyEncoder
+                            { scheduleViews = model.scheduleView
+                            , scheduleDeleteIds = model.scheduleDeleteIds
+                            , deviceScheduleDeleteIds = model.deviceScheduleDeleteIds
+                            }
+                        )
+            in
+            (Debug.log <|
+                String.concat
+                    [ "Schedule views: "
+                    , String.fromInt
+                        (List.length model.scheduleView)
+                    , ", Schedule delete ids: "
+                    , String.fromInt (List.length model.scheduleDeleteIds)
+                    , ", Device Schedule delete ids: "
+                    , String.fromInt (List.length model.deviceScheduleDeleteIds)
+                    ]
+            )
+                (Debug.log <| Debug.toString encodedSchedulePostBody)
+                ( model
+                , Http.post
+                    { url = model.baseUrl ++ "/schedules-save"
+                    , body =
+                        Http.jsonBody <|
+                            schedulePostBodyEncoder
+                                { scheduleViews = model.scheduleView
+                                , scheduleDeleteIds = model.scheduleDeleteIds
+                                , deviceScheduleDeleteIds = model.deviceScheduleDeleteIds
+                                }
+                    , expect = Http.expectWhatever SavedSchedules
+                    }
+                )
+
         DeleteDeviceSchedule scheduleIndex deviceScheduleIndex ->
             let
                 foundScheduleView =
@@ -220,7 +276,7 @@ update msg model =
                             (\iScheduleViewUnit scheduleViewUnit ->
                                 case scheduleViewUnit.schedule of
                                     Just schedule ->
-                                        if iScheduleViewUnit /= scheduleIndex then
+                                        if iScheduleViewUnit == scheduleIndex then
                                             Just scheduleViewUnit
 
                                         else
@@ -240,7 +296,7 @@ update msg model =
                                 scheduleViewX.deviceScheduleView
                                     |> List.indexedMap
                                         (\iDeviceScheduleViewX deviceScheduleViewX ->
-                                            if iDeviceScheduleViewX /= deviceScheduleIndex then
+                                            if iDeviceScheduleViewX == deviceScheduleIndex then
                                                 Just deviceScheduleViewX
 
                                             else
@@ -423,61 +479,76 @@ update msg model =
             ( model, deleteSchedule schedule )
 
         ChangeScheduleHour i s ->
-            let
-                newScheduleView =
-                    List.map
-                        (\scheduleViewX ->
-                            case scheduleViewX.schedule of
-                                Just schedule ->
-                                    let
-                                        newSchedule =
-                                            if schedule.id == Just i then
-                                                { schedule | hour = String.toInt s }
+            ( { model
+                | scheduleView =
+                    List.indexedMap
+                        (\ix scheduleViewX ->
+                            if i == ix then
+                                case scheduleViewX.schedule of
+                                    Just schedule ->
+                                        { scheduleViewX | schedule = Just { schedule | hour = String.toInt s } }
 
-                                            else
-                                                schedule
-                                    in
-                                    { scheduleViewX | schedule = Just newSchedule }
+                                    _ ->
+                                        scheduleViewX
 
-                                _ ->
-                                    scheduleViewX
+                            else
+                                scheduleViewX
                         )
                         model.scheduleView
-            in
-            ( { model | scheduleView = newScheduleView }, Cmd.none )
+              }
+            , Cmd.none
+            )
 
         ChangeScheduleMinute i s ->
-            let
-                newScheduleView =
-                    List.map
-                        (\scheduleViewX ->
-                            case scheduleViewX.schedule of
-                                Just schedule ->
-                                    let
-                                        newSchedule =
-                                            if schedule.id == Just i then
-                                                { schedule | minute = String.toInt s }
+            ( { model
+                | scheduleView =
+                    List.indexedMap
+                        (\ix scheduleViewX ->
+                            if i == ix then
+                                case scheduleViewX.schedule of
+                                    Just schedule ->
+                                        { scheduleViewX | schedule = Just { schedule | minute = String.toInt s } }
 
-                                            else
-                                                schedule
-                                    in
-                                    { scheduleViewX | schedule = Just newSchedule }
+                                    _ ->
+                                        scheduleViewX
 
-                                _ ->
-                                    scheduleViewX
+                            else
+                                scheduleViewX
                         )
                         model.scheduleView
-            in
-            ( { model | scheduleView = newScheduleView }, Cmd.none )
+              }
+            , Cmd.none
+            )
+
+        ChangeScheduleWateringTime i s ->
+            ( { model
+                | scheduleView =
+                    List.indexedMap
+                        (\ix scheduleViewX ->
+                            if i == ix then
+                                case scheduleViewX.schedule of
+                                    Just schedule ->
+                                        { scheduleViewX | schedule = Just { schedule | wateringSecs = String.toInt s } }
+
+                                    _ ->
+                                        scheduleViewX
+
+                            else
+                                scheduleViewX
+                        )
+                        model.scheduleView
+              }
+            , Cmd.none
+            )
 
         GotSchedulesView res ->
             case res of
                 Ok schedulesView ->
                     ( { model | scheduleView = schedulesView }, Cmd.none )
 
-                Err _ ->
-                    -- (Debug.log <| Debug.toString e)
-                    ( model, Cmd.none )
+                Err e ->
+                    (Debug.log <| Debug.toString e)
+                        ( model, Cmd.none )
 
         OpenedValve _ ->
             ( model, Cmd.none )
@@ -761,9 +832,20 @@ scheduleView : Model -> Html Msg
 scheduleView model =
     div [ class "m-3" ]
         [ div
-            [ class "d-flex justify-content-between align-items-center" ]
+            []
             [ h3 [] [ text "Schedules " ]
-            , div [] [ button [ class "btn btn-sm btn-success" ] [ text "Save" ] ]
+            , div [ class "d-flex align-items-center justify-content-between" ]
+                [ button
+                    [ onClick InsertSchedule
+                    , class "btn btn-sm btn-outline-success"
+                    ]
+                    [ text "Insert" ]
+                , button
+                    [ onClick SaveSchedules
+                    , class "btn btn-sm btn-success"
+                    ]
+                    [ text "Save" ]
+                ]
             ]
         , div []
             (List.indexedMap
@@ -782,7 +864,7 @@ scheduleView model =
                                 -- , div [] [ text <| "Schedule ID: " ++ String.fromInt (Maybe.withDefault 0 schedule.id) ]
                                 , div [ class "d-flex mt-3" ]
                                     [ select
-                                        [ onInput (ChangeScheduleHour <| Maybe.withDefault 0 schedule.id)
+                                        [ onInput (ChangeScheduleHour <| iScheduleViewUnit)
                                         , value <| String.fromInt <| Maybe.withDefault 0 schedule.hour
                                         ]
                                         (List.map
@@ -794,7 +876,7 @@ scheduleView model =
                                             (List.range 0 23)
                                         )
                                     , select
-                                        [ onInput (ChangeScheduleMinute <| Maybe.withDefault 0 schedule.id)
+                                        [ onInput (ChangeScheduleMinute <| iScheduleViewUnit)
                                         , value <| String.fromInt <| Maybe.withDefault 0 schedule.minute
                                         ]
                                         (List.map
@@ -810,6 +892,23 @@ scheduleView model =
                                             String.fromInt (Maybe.withDefault 0 schedule.hour)
                                                 ++ ":"
                                                 ++ String.fromInt (Maybe.withDefault 0 schedule.minute)
+                                        ]
+                                    ]
+                                , div [ class "d-flex align-items-center" ]
+                                    [ div
+                                        []
+                                        [ text "Watering time:" ]
+                                    , div []
+                                        [ input
+                                            [ onInput (ChangeScheduleWateringTime <| iScheduleViewUnit)
+                                            , value <|
+                                                String.fromInt <|
+                                                    withDefault 0 schedule.wateringSecs
+                                            , class "form-control"
+                                            , type_ "number"
+                                            , style "width" "100"
+                                            ]
+                                            []
                                         ]
                                     ]
                                 , div [ class "d-flex align-items-center" ]
@@ -850,6 +949,14 @@ scheduleView model =
 
                                                         _ ->
                                                             "Error"
+                                                                ++ (String.fromInt <|
+                                                                        case deviceScheduleX.device of
+                                                                            Just device ->
+                                                                                withDefault 0 device.id
+
+                                                                            _ ->
+                                                                                -1
+                                                                   )
                                                 ]
                                         )
                                         scheduleViewUnit.deviceScheduleView

@@ -22,6 +22,8 @@ pub fn init() -> SqliteConnection {
     let sqlite_connection = SqliteConnection::establish(&database_url)
         .expect(&format!("Error connecting to {}", database_url));
 
+    crate::populate::populate(&sqlite_connection);
+
     sqlite_connection
 }
 

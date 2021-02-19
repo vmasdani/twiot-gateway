@@ -1,3 +1,4 @@
+use crate::helpermodels::WaterSendBody;
 use crate::models::*;
 use crate::schema;
 use actix_rt::time::delay_for;
@@ -8,6 +9,7 @@ use diesel::{
     r2d2::{ConnectionManager, Pool},
 };
 use dotenv::dotenv;
+use rumqttc::{AsyncClient, MqttOptions, QoS};
 use std::{
     env,
     time::{Duration, Instant},
@@ -49,6 +51,68 @@ pub async fn poller(pool: Pool<ConnectionManager<SqliteConnection>>) {
 
                         println!("Device schedule:");
                         println!("{:?}", device_schedules);
+
+                        match device_schedules {
+                            Ok(device_schedules_res) => {
+                                for device_schedule in device_schedules_res {
+                                    use schema::devices::dsl::*;
+                                    match devices
+                                        .filter(id.eq(device_schedule.device_id.unwrap_or(0)))
+                                        .first::<Device>(&pool_res)
+                                    {
+                                        Ok(found_device) => {
+                                            tokio::spawn(async move {
+                                                println!(
+                                                    "Watering {} ({}) for {} secs",
+                                                    found_device
+                                                        .name
+                                                        .unwrap_or("unnamed".to_string()),
+                                                    found_device.id.unwrap_or(0),
+                                                    schedule_res.watering_secs.unwrap_or(0)
+                                                );
+
+                                                let found_device_id = found_device.id.unwrap_or(0);
+
+                                                crate::mqtt::send_single(
+                                                    format!("{}/water", found_device_id),
+                                                    serde_json::to_string(&WaterSendBody {
+                                                        water_on: true,
+                                                    })
+                                                    .unwrap_or("".to_string()),
+                                                )
+                                                .await;
+
+                                                for i in 0..schedule_res.watering_secs.unwrap_or(0)
+                                                {
+                                                    println!(
+                                                        "Device ID {}: {} out of {}",
+                                                        found_device_id,
+                                                        i + 1,
+                                                        schedule_res.watering_secs.unwrap_or(0)
+                                                    );
+
+                                                    tokio::time::delay_for(Duration::from_secs(1))
+                                                        .await;
+                                                }
+
+                                                crate::mqtt::send_single(
+                                                    format!("{}/water", found_device_id),
+                                                    serde_json::to_string(&WaterSendBody {
+                                                        water_on: false,
+                                                    })
+                                                    .unwrap_or("".to_string()),
+                                                )
+                                                .await;
+                                            });
+                                        }
+                                        Err(e) => println!("{}", e),
+                                    }
+                                }
+                            }
+                            Err(e) => {
+                                println!("{:?}", e);
+                            }
+                        }
                     }
                     Err(e) => {
                         println!("{:?}", e);

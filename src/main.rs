@@ -40,7 +40,6 @@ async fn main() {
         .expect("Failed to create db pool.");
 
     embedded_migrations::run(&conn).expect("Error running migrations.");
-    populate::populate(&conn);
 
     let client_arc = Arc::new(Mutex::new(client));
     let conn_arc = Arc::new(Mutex::new(conn));

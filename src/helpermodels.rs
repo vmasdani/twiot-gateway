@@ -39,3 +39,8 @@ pub struct SchedulePostBody {
     pub schedule_delete_ids: Vec<i32>,
     pub device_schedule_delete_ids: Vec<i32>,
 }
+
+#[derive(Deserialize, Serialize, Debug)]
+pub struct WaterSendBody {
+    pub water_on: bool,
+}

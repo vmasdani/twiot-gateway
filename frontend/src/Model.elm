@@ -250,8 +250,8 @@ type alias DeviceSchedule =
 initialDeviceSchedule : DeviceSchedule
 initialDeviceSchedule =
     { id = Nothing
-    , scheduleId = Nothing
     , deviceId = Nothing
+    , scheduleId = Nothing
     , createdAt = Nothing
     , updatedAt = Nothing
     }
@@ -261,8 +261,8 @@ deviceScheduleDecoder : Decoder DeviceSchedule
 deviceScheduleDecoder =
     Decode.succeed DeviceSchedule
         |> Pipeline.required "id" (Decode.maybe Decode.int)
-        |> Pipeline.required "schedule_id" (Decode.maybe Decode.int)
         |> Pipeline.required "device_id" (Decode.maybe Decode.int)
+        |> Pipeline.required "schedule_id" (Decode.maybe Decode.int)
         |> Pipeline.required "created_at" (Decode.maybe Decode.string)
         |> Pipeline.required "updated_at" (Decode.maybe Decode.string)
 

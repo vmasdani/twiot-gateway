@@ -4,7 +4,7 @@ use diesel::Identifiable;
 use serde::{Deserialize, Serialize};
 
 #[derive(
-    Identifiable, Associations, Insertable, Queryable, Serialize, Deserialize, Debug, Clone,
+    Identifiable, Associations, Insertable, Queryable, Serialize, Deserialize, Debug, Clone, Copy
 )]
 pub struct Schedule {
     pub id: Option<i32>,
@@ -24,7 +24,7 @@ pub struct WateringTime {
 }
 
 #[derive(
-    Identifiable, Associations, Insertable, Queryable, Serialize, Deserialize, Debug, Clone,
+    Identifiable, Associations, Insertable, Queryable, Serialize, Deserialize, Debug, Clone
 )]
 #[belongs_to(DeviceType)]
 pub struct Device {

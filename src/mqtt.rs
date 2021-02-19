@@ -49,3 +49,28 @@ pub async fn listen(
         }
     }
 }
+
+pub async fn send_single(topic: String, payload: String) {
+    let mut mqttoptions = MqttOptions::new(uuid::Uuid::new_v4().to_string(), "localhost", 1883);
+    mqttoptions.set_keep_alive(5);
+
+    let (mut client, mut eventloop) = AsyncClient::new(mqttoptions, 10);
+    client.subscribe(topic.as_str(), QoS::AtMostOnce).await;
+
+    client
+        .publish(topic.as_str(), QoS::AtLeastOnce, false, payload.as_str())
+        .await;
+    client.disconnect().await;
+
+    loop {
+        match eventloop.poll().await {
+            Ok(Event::Outgoing(rumqttc::Outgoing::Disconnect)) => {
+                println!("Disconnect {}:{}", topic, payload.as_str());
+                break;
+            }
+            _ => {
+                println!("Irrelevant");
+            }
+        }
+    }
+}

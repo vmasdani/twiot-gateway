@@ -162,7 +162,7 @@ pub async fn register_device(
                         let inserted_id =
                             diesel::select(last_insert_rowid).get_result::<i32>(&pool_res);
                         let saved_device = devices
-                            .order_by(id.eq(inserted_id.unwrap_or_default()))
+                            .filter(id.eq(inserted_id.unwrap_or_default()))
                             .first::<Device>(&pool_res);
                         println!("Saved device: {:?}", saved_device);
 
@@ -594,10 +594,6 @@ pub struct WaterBody {
     pub water_on: bool,
 }
 
-#[derive(Deserialize, Serialize, Debug)]
-pub struct WaterSendBody {
-    pub water_on: bool,
-}
 
 #[post("/water")]
 pub async fn water(water_data: web::Json<WaterBody>) -> impl Responder {

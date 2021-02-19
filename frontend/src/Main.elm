@@ -350,84 +350,75 @@ update msg model =
             , Cmd.none
             )
 
-        InsertScheduleDevice scheduleId deviceIdString ->
+        InsertScheduleDevice i deviceIdString ->
             let
                 newScheduleViews =
                     if deviceIdString /= "" then
-                        List.map
-                            (\scheduleViewX ->
-                                case scheduleViewX.schedule of
-                                    Just schedule ->
-                                        if schedule.id == Just scheduleId then
-                                            case
-                                                List.Extra.find
-                                                    (\deviceScheduleView ->
-                                                        case deviceScheduleView.device of
-                                                            Just device ->
-                                                                if (String.fromInt <| Maybe.withDefault 0 device.id) == deviceIdString then
-                                                                    True
+                        List.indexedMap
+                            (\iScheduleViewX scheduleViewX ->
+                                if i == iScheduleViewX then
+                                    case
+                                        List.Extra.find
+                                            (\deviceScheduleView ->
+                                                case deviceScheduleView.deviceSchedule of
+                                                    Just deviceSchedule ->
+                                                        if (String.fromInt <| Maybe.withDefault 0 deviceSchedule.deviceId) == deviceIdString then
+                                                            True
 
-                                                                else
-                                                                    False
+                                                        else
+                                                            False
 
-                                                            _ ->
-                                                                False
-                                                    )
-                                                    scheduleViewX.deviceScheduleView
-                                            of
-                                                Just _ ->
-                                                    scheduleViewX
-
-                                                _ ->
-                                                    let
-                                                        foundDevice =
-                                                            List.Extra.find
-                                                                (\device -> (String.fromInt <| Maybe.withDefault 0 device.id) == deviceIdString)
-                                                                model.devices
-
-                                                        newDeviceScheduleView =
-                                                            scheduleViewX.deviceScheduleView
-                                                                ++ [ { device = foundDevice
-                                                                     , schedule = Just schedule
-                                                                     , deviceSchedule =
-                                                                        Just
-                                                                            { initialDeviceSchedule
-                                                                                | deviceId =
-                                                                                    case foundDevice of
-                                                                                        Just device ->
-                                                                                            Just (withDefault 0 device.id)
-
-                                                                                        _ ->
-                                                                                            Nothing
-                                                                                , scheduleId = Just (withDefault 0 schedule.id)
-                                                                            }
-                                                                     }
-                                                                   ]
-                                                    in
-                                                    { scheduleViewX | deviceScheduleView = newDeviceScheduleView }
-
-                                        else
+                                                    _ ->
+                                                        False
+                                            )
+                                            scheduleViewX.deviceScheduleView
+                                    of
+                                        Just _ ->
                                             scheduleViewX
 
-                                    _ ->
-                                        scheduleViewX
+                                        _ ->
+                                            let
+                                                foundDevice =
+                                                    List.Extra.find
+                                                        (\device -> (String.fromInt <| Maybe.withDefault 0 device.id) == deviceIdString)
+                                                        model.devices
+
+                                                newDeviceScheduleView =
+                                                    scheduleViewX.deviceScheduleView
+                                                        ++ [ { device = foundDevice
+                                                             , schedule = scheduleViewX.schedule
+                                                             , deviceSchedule =
+                                                                Just
+                                                                    { initialDeviceSchedule
+                                                                        | deviceId =
+                                                                            case foundDevice of
+                                                                                Just device ->
+                                                                                    Just (withDefault 0 device.id)
+
+                                                                                _ ->
+                                                                                    Nothing
+                                                                        , scheduleId =
+                                                                            case scheduleViewX.schedule of
+                                                                                Just schedule ->
+                                                                                    schedule.id
+
+                                                                                _ ->
+                                                                                    Nothing
+                                                                    }
+                                                             }
+                                                           ]
+                                            in
+                                            { scheduleViewX | deviceScheduleView = newDeviceScheduleView }
+
+                                else
+                                    scheduleViewX
                             )
                             model.scheduleView
 
                     else
                         model.scheduleView
             in
-            (Debug.log <|
-                String.concat
-                    [ "Schedule ID: "
-                    , String.fromInt scheduleId
-                    , ", Device ID: "
-                    , deviceIdString
-                    , ", Device ID = empty: "
-                    , Debug.toString <| deviceIdString == ""
-                    ]
-            )
-                ( { model | scheduleView = newScheduleViews }, Cmd.none )
+            ( { model | scheduleView = newScheduleViews }, Cmd.none )
 
         ScheduleDeleteRecv scheduleIndex ->
             let
@@ -916,9 +907,8 @@ scheduleView model =
                                     , div []
                                         [ select
                                             [ onInput <|
-                                                (InsertScheduleDevice <|
-                                                    Maybe.withDefault 0 schedule.id
-                                                )
+                                                InsertScheduleDevice
+                                                    iScheduleViewUnit
                                             ]
                                             ([ option [] [] ]
                                                 ++ List.map

@@ -108,7 +108,6 @@ type alias Model =
 
 fetchBasedOnUrl : Model -> Url.Url -> Cmd Msg
 fetchBasedOnUrl model url =
-    -- -- (Debug.log <| "FetchBasedOnUrl: " ++ Url.toString url)
     case toRoute (Url.toString url) of
         Home ->
             Cmd.batch
@@ -242,31 +241,30 @@ update msg model =
                             }
                         )
             in
-            (Debug.log <|
-                String.concat
-                    [ "Schedule views: "
-                    , String.fromInt
-                        (List.length model.scheduleView)
-                    , ", Schedule delete ids: "
-                    , String.fromInt (List.length model.scheduleDeleteIds)
-                    , ", Device Schedule delete ids: "
-                    , String.fromInt (List.length model.deviceScheduleDeleteIds)
-                    ]
+            -- (Debug.log <|
+            --     String.concat
+            --         [ "Schedule views: "
+            --         , String.fromInt
+            --             (List.length model.scheduleView)
+            --         , ", Schedule delete ids: "
+            --         , String.fromInt (List.length model.scheduleDeleteIds)
+            --         , ", Device Schedule delete ids: "
+            --         , String.fromInt (List.length model.deviceScheduleDeleteIds)
+            --         ]
+            -- )
+            ( model
+            , Http.post
+                { url = model.baseUrl ++ "/schedules-save"
+                , body =
+                    Http.jsonBody <|
+                        schedulePostBodyEncoder
+                            { scheduleViews = model.scheduleView
+                            , scheduleDeleteIds = model.scheduleDeleteIds
+                            , deviceScheduleDeleteIds = model.deviceScheduleDeleteIds
+                            }
+                , expect = Http.expectWhatever SavedSchedules
+                }
             )
-                (Debug.log <| Debug.toString encodedSchedulePostBody)
-                ( model
-                , Http.post
-                    { url = model.baseUrl ++ "/schedules-save"
-                    , body =
-                        Http.jsonBody <|
-                            schedulePostBodyEncoder
-                                { scheduleViews = model.scheduleView
-                                , scheduleDeleteIds = model.scheduleDeleteIds
-                                , deviceScheduleDeleteIds = model.deviceScheduleDeleteIds
-                                }
-                    , expect = Http.expectWhatever SavedSchedules
-                    }
-                )
 
         DeleteDeviceSchedule scheduleIndex deviceScheduleIndex ->
             let
@@ -538,8 +536,7 @@ update msg model =
                     ( { model | scheduleView = schedulesView }, Cmd.none )
 
                 Err e ->
-                    (Debug.log <| Debug.toString e)
-                        ( model, Cmd.none )
+                    ( model, Cmd.none )
 
         OpenedValve _ ->
             ( model, Cmd.none )
@@ -557,7 +554,6 @@ update msg model =
             ( model, Nav.pushUrl model.key "/#/devices" )
 
         SaveDeviceDetail ->
-            -- -- (Debug.log <| "JSON encoded:" ++ Encode.encode 0 (deviceEncoder model.device))
             --     ( model, Cmd.none )
             ( model
             , Http.post
@@ -635,7 +631,6 @@ update msg model =
                     ( model, Nav.load href )
 
         UrlChanged url ->
-            -- (Debug.log <| Debug.toString url)
             ( { model | url = url }
             , fetchBasedOnUrl model url
             )

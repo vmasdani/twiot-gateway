@@ -27,7 +27,6 @@ extern crate diesel;
 extern crate diesel_migrations;
 
 embed_migrations!();
-
 #[tokio::main]
 async fn main() {
     println!("Hello, world!");

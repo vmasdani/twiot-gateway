@@ -1,18 +1,34 @@
 use std::{fs::File, io::Read, time::Duration};
 
-use embedded_graphics::{drawable::Drawable, image::Image, pixelcolor::BinaryColor, prelude::Point};
-use image::{Luma, imageops::{self, FilterType}};
+use embedded_graphics::{
+    drawable::Drawable,
+    fonts::{Font12x16, Text},
+    image::Image,
+    pixelcolor::BinaryColor,
+    prelude::Point,
+    style::TextStyle,
+};
+use image::{
+    imageops::{self, FilterType},
+    Luma,
+};
 use linux_embedded_hal::I2cdev;
 use qrcode::QrCode;
-use ssd1306::{Builder, I2CDIBuilder, mode::GraphicsMode};
+use ssd1306::{mode::GraphicsMode, Builder, I2CDIBuilder};
 use tinybmp::Bmp;
 
 pub async fn run_loop() {
     loop {
-        match machine_ip::get() {
-            Some(ip) => println!("Local ip: {}", ip),
-            _ => println!("Failed getting IP."),
-        }
+        let ip = match machine_ip::get() {
+            Some(ip) => {
+                println!("Local ip: {}", ip);
+                ip.to_string()
+            }
+            _ => {
+                println!("Failed getting IP.");
+                "".to_string()
+            }
+        };
 
         let qr_gen = QrCode::new(match machine_ip::get() {
             Some(ip) => format!("http://{}", ip.to_string()),
@@ -53,6 +69,19 @@ pub async fn run_loop() {
 
                                 let image: Image<Bmp, BinaryColor> =
                                     Image::new(&bmp, Point::zero());
+
+                                for (i, bit) in
+                                    ip.split(".").collect::<Vec<&str>>().iter().enumerate()
+                                {
+                                    println!("{}", bit);
+
+                                    let text_style = TextStyle::new(Font12x16, BinaryColor::On);
+                                    let text = Text::new(bit, Point::new(64, 16 * (i as i32)))
+                                        .into_styled(text_style);
+
+                                    text.draw(&mut disp);
+                                }
+
                                 image.draw(&mut disp);
                             }
                             Err(e) => {

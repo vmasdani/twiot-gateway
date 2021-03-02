@@ -50,7 +50,7 @@ location / {
 ```
 
 4. Write systemd daemon for twiot-gateway
-```
+```sh
 # /etc/systemd/system/twiot-gateway
 
 [Unit]

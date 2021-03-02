@@ -24,8 +24,8 @@ cargo install cross
 ```
 systemctl start docker
 ```
-3. Compile to opi zero target
+3. Compile to opi armv7 musl hf
 ```
-cross build --target armv7-unknown-linux-musleabihf --release
+./run.py prod
 ```
-4. Files will be located in `target/`
+4. Files will be located in `dist/`

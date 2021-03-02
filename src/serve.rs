@@ -1,4 +1,5 @@
 use actix_cors::Cors;
+use actix_files::Files;
 use actix_web::{
     get, http::ContentEncoding, middleware::Compress, web, App, HttpResponse, HttpServer, Responder,
 };
@@ -11,10 +12,6 @@ use handler::*;
 
 use crate::handler;
 
-#[get("/")]
-async fn index() -> impl Responder {
-    HttpResponse::Ok().body("Hello, world!")
-}
 
 pub async fn run_actix(pool: Pool<ConnectionManager<SqliteConnection>>) -> std::io::Result<()> {
     let local = tokio::task::LocalSet::new();
@@ -30,7 +27,6 @@ pub async fn run_actix(pool: Pool<ConnectionManager<SqliteConnection>>) -> std::
                     .max_age(3600),
             )
             .data(pool.clone())
-            .service(index)
             .service(test)
             // Schedule
             .service(all_schedules)
@@ -55,6 +51,8 @@ pub async fn run_actix(pool: Pool<ConnectionManager<SqliteConnection>>) -> std::
             // Misc
             .service(check_resp)
             .service(water)
+            .service(Files::new("/", "./frontend").index_file("index.html"))
+
     })
     .bind("0.0.0.0:8080")?
     .run()

@@ -32,13 +32,15 @@ async fn main() {
     println!("Hello, world!");
     let (client, mut eventloop) = mqtt::init().await;
     let conn = db::init();
+    embedded_migrations::run(&conn).expect("Error running migrations.");
+
     let manager = ConnectionManager::<SqliteConnection>::new("twiot-gateway.sqlite3");
     let pool = r2d2::Pool::builder()
         .max_size(1)
         .build(manager)
         .expect("Failed to create db pool.");
 
-    embedded_migrations::run(&conn).expect("Error running migrations.");
+    crate::populate::populate(&conn);
 
     let client_arc = Arc::new(Mutex::new(client));
     let conn_arc = Arc::new(Mutex::new(conn));

@@ -41,7 +41,7 @@ scheduleDecoder =
 scheduleEncoder : Schedule -> Encode.Value
 scheduleEncoder schedule =
     Encode.object
-        [ case schedule.id of
+        [ case schedule.id of 
             Just id ->
                 ( "id", Encode.int id )
 

@@ -26,6 +26,7 @@ import Url.Parser as Parser exposing ((</>), Parser)
 
 
 port deleteSchedule : Schedule -> Cmd msg
+port reload : () -> Cmd msg
 
 
 port scheduleDeleteRecv : (Schedule -> msg) -> Sub msg
@@ -228,7 +229,7 @@ update msg model =
             )
 
         SavedSchedules res ->
-            ( model, Cmd.none )
+            ( model, reload () )
 
         SaveSchedules ->
             let

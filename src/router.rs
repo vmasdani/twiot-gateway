@@ -22,7 +22,7 @@ pub async fn route(
     route: String,
     payload: String,
 ) {
-    println!("Payload: {}", payload);
+    println!("[route] Payload: {}", payload);
 
     match route.as_str() {
         _ => {} // Schedules

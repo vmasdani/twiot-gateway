@@ -29,16 +29,16 @@ extern crate diesel_migrations;
 embed_migrations!();
 #[tokio::main]
 async fn main() {
-    println!("Hello, world!");
+    println!("[main] Hello, world!");
     let (client, mut eventloop) = mqtt::init().await;
     let conn = db::init();
-    embedded_migrations::run(&conn).expect("Error running migrations.");
+    embedded_migrations::run(&conn).expect("[main] Error running migrations.");
 
     let manager = ConnectionManager::<SqliteConnection>::new("twiot-gateway.sqlite3");
     let pool = r2d2::Pool::builder()
         .max_size(1)
         .build(manager)
-        .expect("Failed to create db pool.");
+        .expect("[main] Failed to create db pool.");
 
     crate::populate::populate(&conn);
 

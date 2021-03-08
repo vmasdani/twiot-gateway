@@ -10,14 +10,14 @@ pub fn populate(connection: &SqliteConnection) {
     use crate::schema::watering_times::dsl::watering_times;
     match watering_times.load::<WateringTime>(connection) {
         Ok(watering_times_result) => {
-            println!("Showing {} watering times.", watering_times_result.len());
+            println!("[populate] Showing {} watering times.", watering_times_result.len());
 
             watering_times_result.iter().for_each(|watering_time| {
-                println!("Watering time: {:?}", watering_time);
+                println!("[populate] Watering time: {:?}", watering_time);
             });
 
             if watering_times_result.len() == 0 {
-                println!("No watering time detected! Creating...");
+                println!("[populate] No watering time detected! Creating...");
 
                 let new_watering_time = WateringTime {
                     id: None,
@@ -31,21 +31,21 @@ pub fn populate(connection: &SqliteConnection) {
                     .execute(connection);
             }
         }
-        Err(e) => println!("{:?}", e),
+        Err(e) => println!("[populate] {:?}", e),
     }
 
     // Check schedule
     use crate::schema::schedules::dsl::schedules;
     match schedules.load::<Schedule>(connection) {
         Ok(schedules_result) => {
-            println!("Showing {} schedules.", schedules_result.len());
+            println!("[populate] Showing {} schedules.", schedules_result.len());
 
             schedules_result.iter().for_each(|schedule| {
-                println!("Schedule: {:?}", schedule);
+                println!("[populate] Schedule: {:?}", schedule);
             });
 
             if schedules_result.len() == 0 {
-                println!("No schedules found. Creating...");
+                println!("[populate] No schedules found. Creating...");
 
                 let new_schedule = Schedule {
                     id: None,
@@ -62,7 +62,7 @@ pub fn populate(connection: &SqliteConnection) {
             }
         }
         Err(e) => {
-            println!("{:?}", e);
+            println!("[populate] {:?}", e);
         }
     }
 
@@ -89,10 +89,10 @@ pub fn populate(connection: &SqliteConnection) {
             .first::<DeviceType>(connection)
         {
             Ok(_) => {
-                println!("Device type {} found!", device_name);
+                println!("[populate] Device type {} found!", device_name);
             }
             Err(_) => {
-                println!("Device type {} not found! Creating...", device_name);
+                println!("[populate] Device type {} not found! Creating...", device_name);
 
                 let new_device_type = DeviceType {
                     id: None,

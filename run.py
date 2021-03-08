@@ -38,17 +38,21 @@ else:
     frontend_index_html.write(index_html)
     frontend_index_html.close()
 
-        
-
     steps = [
         ('.', 'rm -rf dist'),
         ('.', 'mkdir -p dist/frontend'),
-        ('.', build_cmd),
-        ('.', f'cp {build_location} .env dist'),
-        ('./frontend', './build.sh'),
-        ('.', 'cp -r frontend/dist/* dist/frontend'),
-        ('./dist', 'zip -r release.zip *')
     ]
+
+    if run_type == 'prod':
+        steps.extend([
+            ('.', build_cmd),
+            ('.', f'cp {build_location} .env dist'),
+            ('./frontend', './build.sh'),
+            ('.', 'cp -r frontend/dist/* dist/frontend'),
+            ('./dist', 'zip -r release.zip *')
+        ])
+    else:
+        steps.extend([('.', 'cargo run')])
 
     for (path, step) in steps:
         print(path, step)

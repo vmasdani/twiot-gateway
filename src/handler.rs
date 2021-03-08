@@ -36,7 +36,7 @@ struct DeviceIdentifier {
 
 #[get("/check-resp")]
 pub async fn check_resp() -> impl Responder {
-    println!("Req sent");
+    println!("[check_resp] Req sent");
     HttpResponse::Ok().body("OK")
 }
 
@@ -59,7 +59,7 @@ pub async fn test(pool: web::Data<DbPool>) -> impl Responder {
                             .execute(&pool_res);
                     }
                     Err(e) => {
-                        println!("{:?}", e);
+                        println!("[test] {:?}", e);
                     }
                 }
 
@@ -68,14 +68,14 @@ pub async fn test(pool: web::Data<DbPool>) -> impl Responder {
                     .order_by(id.desc())
                     .first::<DeviceType>(&pool_res);
 
-                println!("Latest row id: {:?}", latest_rowid);
+                println!("[test] Latest row id: {:?}", latest_rowid);
 
                 match last_device_type {
                     Ok(device_type) => {
-                        println!("Last device type (id desc) id: {:?}", device_type.id);
+                        println!("[test] Last device type (id desc) id: {:?}", device_type.id);
                     }
                     Err(e) => {
-                        println!("{:?}", e);
+                        println!("[test] {:?}", e);
                     }
                 }
 
@@ -126,12 +126,12 @@ pub async fn register_device(
                     .first::<Device>(&pool_res)
                 {
                     Ok(device_res) => {
-                        println!("Device found {:?}", device_res);
+                        println!("[register-device] Device found {:?}", device_res);
                         Ok(device_res as Device)
                     }
                     Err(_) => {
                         println!(
-                            "Device not found with mac {:?}, creating.",
+                            "[register-device] Device not found with mac {:?}, creating.",
                             device_identifier.mac
                         );
 
@@ -164,7 +164,7 @@ pub async fn register_device(
                         let saved_device = devices
                             .filter(id.eq(inserted_id.unwrap_or_default()))
                             .first::<Device>(&pool_res);
-                        println!("Saved device: {:?}", saved_device);
+                        println!("[register-device] Saved device: {:?}", saved_device);
 
                         saved_device
                     }
@@ -175,10 +175,10 @@ pub async fn register_device(
             match found_device_res {
                 Ok(device_res) => HttpResponse::Created().json(device_res.id),
                 Err(e) => HttpResponse::InternalServerError()
-                    .body("Error saving device or blocking error"),
+                    .body("[register-device] Error saving device or blocking error"),
             }
         }
-        _ => HttpResponse::InternalServerError().body("Failed getting pool"),
+        _ => HttpResponse::InternalServerError().body("[register-device] Failed getting pool"),
     }
 }
 
@@ -316,7 +316,7 @@ pub async fn save_schedule(
     pool: web::Data<DbPool>,
     schedule_body: web::Json<SchedulePostBody>,
 ) -> impl Responder {
-    println!("{:#?}", schedule_body);
+    println!("[schedules-save] {:#?}", schedule_body);
     match pool.get() {
         Ok(pool_res) => {
             match web::block(move || {
@@ -340,12 +340,12 @@ pub async fn save_schedule(
                                 let saved_schedule: Result<Schedule, _> =
                                     schedules.find(schedule_id_res).first(&pool_res);
 
-                                println!("Saved schjedule: {:?}", saved_schedule);
+                                println!("[schedules-save] Saved schjedule: {:?}", saved_schedule);
 
                                 schedule_view.device_schedule_views.iter().for_each(
                                     |device_schedule_view| {
                                         println!(
-                                            "Device schedule view: {:?}",
+                                            "[schedules-save] Device schedule view: {:?}",
                                             device_schedule_view
                                         );
                                         match device_schedule_view.device_schedule {
@@ -357,13 +357,13 @@ pub async fn save_schedule(
                                                     .execute(&pool_res);
                                             }
 
-                                            None => println!("Device schedule none"),
+                                            None => println!("[schedules-save] Device schedule none"),
                                         }
                                     },
                                 );
                             }
                             Err(e) => {
-                                println!("{:?}", e);
+                                println!("[schedules-save] {:?}", e);
                             }
                         }
                     });
@@ -381,7 +381,7 @@ pub async fn save_schedule(
                     .device_schedule_delete_ids
                     .iter()
                     .for_each(|device_schedule_id| {
-                        println!("Device schedule id to delet: {}", device_schedule_id);
+                        println!("[schedules-save] Device schedule id to delet: {}", device_schedule_id);
                         use schema::device_schedules::dsl::*;
 
                         diesel::delete(device_schedules.filter(id.eq(device_schedule_id)))
@@ -638,16 +638,16 @@ pub async fn water(water_data: web::Json<WaterBody>) -> impl Responder {
     loop {
         match eventloop.poll().await {
             Ok(Event::Outgoing(rumqttc::Outgoing::Disconnect)) => {
-                println!("Disconnect reached!");
+                println!("[water ] Disconnect reached!");
                 break;
             }
             _ => {
-                println!("Irrelevant");
+                println!("[water] Irrelevant");
             }
         }
     }
 
-    println!("Send OK");
+    println!("[water] Send OK");
 
     HttpResponse::Ok().body("OK")
 }

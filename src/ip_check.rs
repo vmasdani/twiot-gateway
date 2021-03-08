@@ -21,11 +21,11 @@ pub async fn run_loop() {
     loop {
         let ip = match machine_ip::get() {
             Some(ip) => {
-                println!("Local ip: {}", ip);
+                println!("[ip_check] Local ip: {}", ip);
                 ip.to_string()
             }
             _ => {
-                println!("Failed getting IP.");
+                println!("[ip_check] Failed getting IP.");
                 "".to_string()
             }
         };
@@ -48,14 +48,14 @@ pub async fn run_loop() {
 
         match I2cdev::new("/dev/i2c-0") {
             Ok(i2c) => {
-                println!("i2c OK");
+                println!("[ip_check] i2c OK");
 
                 let mut disp: GraphicsMode<_, _> =
                     Builder::new().connect(I2CDIBuilder::new().init(i2c)).into();
 
                 match disp.init() {
                     Ok(_) => {
-                        println!("OLED init OK");
+                        println!("[ip_check] OLED init OK");
 
                         disp.flush().unwrap();
                         let qr_file = File::open("./qr.bmp");
@@ -73,7 +73,7 @@ pub async fn run_loop() {
                                 for (i, bit) in
                                     ip.split(".").collect::<Vec<&str>>().iter().enumerate()
                                 {
-                                    println!("{}", bit);
+                                    println!("[ip_check] {}", bit);
 
                                     let text_style = TextStyle::new(Font12x16, BinaryColor::On);
                                     let text = Text::new(bit, Point::new(64, 16 * (i as i32)))
@@ -85,19 +85,19 @@ pub async fn run_loop() {
                                 image.draw(&mut disp);
                             }
                             Err(e) => {
-                                println!("{:?}", e);
+                                println!("[ip_check] {:?}", e);
                             }
                         }
 
                         disp.flush().unwrap();
                     }
                     Err(e) => {
-                        println!("{:?}", e);
+                        println!("[ip_check] {:?}", e);
                     }
                 }
             }
             Err(e) => {
-                println!("{:?}", e);
+                println!("[ip_check] {:?}", e);
             }
         }
 

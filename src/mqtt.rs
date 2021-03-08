@@ -28,10 +28,10 @@ pub async fn listen(
 
     loop {
         let notification = eventloop.poll().await.unwrap();
-        println!("Recv : {:?}", notification);
+        println!("[listen] Recv : {:?}", notification);
 
         if let Event::Incoming(Incoming::Publish(p)) = notification {
-            println!("Topic: {:?}, Payload: {:?}", p.topic, p.payload);
+            println!("[listen] Topic: {:?}, Payload: {:?}", p.topic, p.payload);
 
             if let Ok(payload_str) = String::from_utf8(p.payload.into_iter().map(|i| i).collect()) {
                 let topic_clone = p.topic.clone();
@@ -44,7 +44,7 @@ pub async fn listen(
                     router::route(pool_clone_task, conn, client, topic_clone, payload_str).await;
                 });
             } else {
-                println!("Error decoding bytes");
+                println!("[listen] Error decoding bytes");
             }
         }
     }
@@ -65,11 +65,11 @@ pub async fn send_single(topic: String, payload: String) {
     loop {
         match eventloop.poll().await {
             Ok(Event::Outgoing(rumqttc::Outgoing::Disconnect)) => {
-                println!("Disconnect {}:{}", topic, payload.as_str());
+                println!("[send_single] Disconnect {}:{}", topic, payload.as_str());
                 break;
             }
             _ => {
-                println!("Irrelevant");
+                println!("[send_single] Irrelevant");
             }
         }
     }

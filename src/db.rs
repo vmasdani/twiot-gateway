@@ -30,7 +30,7 @@ pub async fn poller(pool: Pool<ConnectionManager<SqliteConnection>>) {
         let cur_hour = Local::now().hour();
         let cur_min = Local::now().minute();
 
-        println!("[Checking!] {:?}, {}:{}", Local::now(), cur_hour, cur_min);
+        println!("[Schedule Poll] {:?}, {}:{}", Local::now(), cur_hour, cur_min);
 
         use schema::schedules::dsl::*;
 
@@ -41,16 +41,16 @@ pub async fn poller(pool: Pool<ConnectionManager<SqliteConnection>>) {
                     .filter(minute.eq(cur_min as i32))
                     .first::<Schedule>(&pool_res);
 
-                println!("Found schedule:");
-                println!("{:?}", found_schedule);
+                println!("[Schedule Poll] Found schedule:");
+                println!("[Schedule Poll] {:?}", found_schedule);
 
                 match found_schedule {
                     Ok(schedule_res) => {
                         let device_schedules = DeviceSchedule::belonging_to(&schedule_res)
                             .load::<DeviceSchedule>(&pool_res);
 
-                        println!("Device schedule:");
-                        println!("{:?}", device_schedules);
+                        println!("[Schedule Poll] Device schedule:");
+                        println!("[Schedule Poll] {:?}", device_schedules);
 
                         match device_schedules {
                             Ok(device_schedules_res) => {
@@ -63,7 +63,7 @@ pub async fn poller(pool: Pool<ConnectionManager<SqliteConnection>>) {
                                         Ok(found_device) => {
                                             tokio::spawn(async move {
                                                 println!(
-                                                    "Watering {} ({}) for {} secs",
+                                                    "[Schedule Poll] Watering {} ({}) for {} secs",
                                                     found_device
                                                         .name
                                                         .unwrap_or("unnamed".to_string()),
@@ -85,7 +85,7 @@ pub async fn poller(pool: Pool<ConnectionManager<SqliteConnection>>) {
                                                 for i in 0..schedule_res.watering_secs.unwrap_or(0)
                                                 {
                                                     println!(
-                                                        "Device ID {}: {} out of {}",
+                                                        "[Schedule Poll] Device ID {}: {} out of {}",
                                                         found_device_id,
                                                         i + 1,
                                                         schedule_res.watering_secs.unwrap_or(0)
@@ -105,22 +105,22 @@ pub async fn poller(pool: Pool<ConnectionManager<SqliteConnection>>) {
                                                 .await;
                                             });
                                         }
-                                        Err(e) => println!("{}", e),
+                                        Err(e) => println!("[Schedule Poll] {}", e),
                                     }
                                 }
                             }
                             Err(e) => {
-                                println!("{:?}", e);
+                                println!("[Schedule Poll] {:?}", e);
                             }
                         }
                     }
                     Err(e) => {
-                        println!("{:?}", e);
+                        println!("[Schedule Poll] {:?}", e);
                     }
                 }
             }
             Err(e) => {
-                println!("{:?}", e);
+                println!("[Schedule Poll]{:?}", e);
             }
         }
 

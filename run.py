@@ -7,8 +7,10 @@ import json
 
 if len(sys.argv) < 2:
     print('Usage: ./run.py [dev/prod]')
+    print('for prod: ./run.py prod [debug/release]')
 else:
     run_type = sys.argv[1]
+    prod_type = sys.argv[2]
 
     print(f'Run type: {run_type}')
 
@@ -31,7 +33,14 @@ else:
         build_location = 'target/debug/twiot-gateway'
     elif run_type == 'prod':
         index_html = index_html_str.format('`http://${window.location.host}`')
-        build_cmd = 'cross build --target armv7-unknown-linux-musleabihf'
+        
+        if prod_type == 'debug':
+            build_cmd = 'cross build --target armv7-unknown-linux-musleabihf'
+        elif prod_type == 'release':
+            build_cmd = 'cross build --target armv7-unknown-linux-musleabihf --release'
+        else:
+            build_cmd = 'cross build --target armv7-unknown-linux-musleabihf'
+
         build_location = 'target/armv7-unknown-linux-musleabihf/debug/twiot-gateway'
 
     frontend_index_html = open('frontend/index.html', 'w+')
@@ -49,7 +58,7 @@ else:
             ('.', f'cp {build_location} .env dist'),
             ('./frontend', './build.sh'),
             ('.', 'cp -r frontend/dist/* dist/frontend'),
-            ('./dist', 'zip -r release.zip *')
+            ('./dist', 'zip -r release.zip .')
         ])
     else:
         steps.extend([('.', 'cargo run')])

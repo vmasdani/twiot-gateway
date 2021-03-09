@@ -7,3 +7,7 @@ app.ports.deleteSchedule.subscribe((schedule) => {
     app.ports.scheduleDeleteRecv.send(schedule);
   }
 });
+
+app.ports.reload.subscribe(() => {
+  window.location.reload();
+});

@@ -23,13 +23,14 @@ cargo install cross
 ```
 systemctl start docker
 ```
-3. Compile to opi armv7 muslhf
+3. Compile to Orange Pi (armv7 muslhf)
+```sh
+./run.py prod release # or ./run.py prod debug if you wan to compile faster
 ```
-./run.py prod
-```
-4. Files will be located in `dist/`
+4. A file called `release.zip` will be located in `dist/`. You can move the file in your development machine using `scp` in gateway shell, for example `scp valianmasdani@192.168.1.22:~/codes/rust/twiot-gateway/dist/release.zip` 
 
 ### Configuration
+1. Config WiFi and static IP via `nmtui`. Enable `i2c0` and `i2c1` in `armbian-config`
 1. Install requirements
 ```sh
 apt install mosquitto nginx
@@ -40,18 +41,20 @@ timedatectl set-timezone Asia/Jakarta
 ```
 3. Set nginx proxy pass
 ```sh
-# /etc/nginx/sites-available/default
+# /etc/nginx/sites-available/default. Maybe a good thing to backup the default file first
 
 ...
 location / {
   proxy_pass http://localhost:8080;
+
+  # the rest of "location /" body is empty
 }
 ...
 ```
 
 4. Write systemd daemon for twiot-gateway
 ```sh
-# /etc/systemd/system/twiot-gateway
+# /etc/systemd/system/twiot-gateway.service
 
 [Unit]
 Description=TWIoT gateway
@@ -68,6 +71,9 @@ WantedBy=multi-user.target
 ```
 
 5. Enable systemd
-```
+```sh
 systemctl enable twiot-gateway
+systemctl start twiot-gateway 
 ```
+
+6. And you're done. You can now

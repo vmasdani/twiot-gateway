@@ -10,7 +10,11 @@ if len(sys.argv) < 2:
     print('for prod: ./run.py prod [debug/release]')
 else:
     run_type = sys.argv[1]
-    prod_type = sys.argv[2]
+    
+    prod_type = 'debug'
+
+    if len(sys.argv) >= 3:
+        prod_type = sys.argv[2]
 
     print(f'Run type: {run_type}')
 
